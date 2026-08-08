@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+    <title>Lumen — All-in-one workspace</title>
+    <meta
+      name="description"
+      content="Lumen is a frontend-only Notion-inspired workspace: notes, pages, tasks, and templates."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/sidebar.css" />
+    <link rel="stylesheet" href="css/editor.css" />
+    <link rel="stylesheet" href="css/responsive.css" />
+  </head>
+  <body>
+    <!-- ============ Landing / Welcome ============ -->
+    <section id="view-landing" class="landing">
+      <header class="landing-header">
+        <div class="brand">
+          <img class="brand-logo" src="assets/icons/logo.svg" alt="" aria-hidden="true" />
+          <span class="brand-name">Lumen</span>
+        </div>
+        <div class="landing-header-actions">
+          <button id="landing-theme" class="icon-btn" type="button" aria-label="Toggle theme">
+            <span class="icon icon-sun"></span>
+          </button>
+          <button id="landing-login" class="btn btn-ghost" type="button">
+            Log in
+          </button>
+          <button id="landing-signup" class="btn btn-primary" type="button">
+            Sign up
+          </button>
+        </div>
+      </header>
+
+      <main class="landing-main">
+        <div class="landing-copy">
+          <h1 class="landing-title">
+            All your notes, projects,<br />and ideas in <span class="text-accent">one place</span>.
+          </h1>
+          <p class="landing-tagline">
+            A fast, minimal workspace for notes, docs, tasks, and templates. Built to feel like a
+            real productivity app — no backend, just your ideas.
+          </p>
+          <div class="landing-cta">
+            <button id="landing-signup-2" class="btn btn-primary btn-lg" type="button">
+              Get Started
+            </button>
+            <button id="landing-login-2" class="btn btn-secondary btn-lg" type="button">
+              Log in
+            </button>
+          </div>
+          <div class="landing-features">
+            <span class="feature-pill">
+              <span class="icon icon-check" aria-hidden="true"></span> Notes &amp; docs
+            </span>
+            <span class="feature-pill">
+              <span class="icon icon-check" aria-hidden="true"></span> Tasks &amp; lists
+            </span>
+            <span class="feature-pill">
+              <span class="icon icon-check" aria-hidden="true"></span> Light &amp; dark mode
+            </span>
+          </div>
+        </div>
+
+        <div class="landing-visual">
+          <img
+            src="assets/images/illustration.svg"
+            alt="Illustration of an organized digital workspace with cards and lists"
+          />
+        </div>
+      </main>
+
+      <footer class="landing-footer">
+        <span>Lumen</span>
+        <span class="landing-footer-dot">·</span>
+        <span>Frontend Phase 1</span>
+        <span class="landing-footer-dot">·</span>
+        <span>Tip: press <kbd>Ctrl</kbd> + <kbd>K</kbd> to search anywhere</span>
+      </footer>
+    </section>
+
+    <!-- ============ Login ============ -->
+    <section id="view-login" class="auth-view" hidden>
+      <div class="auth-card">
+        <div class="auth-brand">
+          <img class="brand-logo" src="assets/icons/logo.svg" alt="" aria-hidden="true" />
+          <span class="brand-name">Lumen</span>
+        </div>
+        <h1 class="auth-title">Welcome back</h1>
+        <p class="auth-sub">Log in to your workspace.</p>
+        <div class="auth-form">
+          <div class="auth-field">
+            <label for="login-email">Email</label>
+            <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email" />
+            <div class="auth-error" id="login-email-error"></div>
+          </div>
+          <div class="auth-field">
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" placeholder="Your password" autocomplete="current-password" />
+            <div class="auth-error" id="login-password-error"></div>
+          </div>
+          <button id="login-submit" class="btn btn-primary btn-block" type="button">Log in</button>
+          <div class="auth-divider"><span>or</span></div>
+          <button id="login-google" class="btn btn-secondary btn-block" type="button">
+            <span class="g-logo">G</span><span>Continue with Google</span>
+          </button>
+          <p class="auth-switch">
+            Don&rsquo;t have an account?
+            <button id="login-to-register" class="auth-link" type="button">Sign up</button>
+          </p>
+        </div>
+        <p class="auth-hint">Demo: any valid email and password will work.</p>
+      </div>
+    </section>
+
+    <!-- ============ Register ============ -->
+    <section id="view-register" class="auth-view" hidden>
+      <div class="auth-card">
+        <div class="auth-brand">
+          <img class="brand-logo" src="assets/icons/logo.svg" alt="" aria-hidden="true" />
+          <span class="brand-name">Lumen</span>
+        </div>
+        <h1 class="auth-title">Create your account</h1>
+        <p class="auth-sub">Start your workspace in seconds.</p>
+        <div class="auth-form">
+          <div class="auth-field">
+            <label for="reg-name">Name</label>
+            <input id="reg-name" type="text" placeholder="Alex Rivera" autocomplete="name" />
+            <div class="auth-error" id="reg-name-error"></div>
+          </div>
+          <div class="auth-field">
+            <label for="reg-email">Email</label>
+            <input id="reg-email" type="email" placeholder="you@example.com" autocomplete="email" />
+            <div class="auth-error" id="reg-email-error"></div>
+          </div>
+          <div class="auth-field">
+            <label for="reg-password">Password</label>
+            <input id="reg-password" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
+            <div class="auth-error" id="reg-password-error"></div>
+          </div>
+          <div class="auth-field">
+            <label for="reg-confirm">Confirm password</label>
+            <input id="reg-confirm" type="password" placeholder="Repeat your password" autocomplete="new-password" />
+            <div class="auth-error" id="reg-confirm-error"></div>
+          </div>
+          <button id="reg-submit" class="btn btn-primary btn-block" type="button">Create account</button>
+          <div class="auth-divider"><span>or</span></div>
+          <button id="reg-google" class="btn btn-secondary btn-block" type="button">
+            <span class="g-logo">G</span><span>Continue with Google</span>
+          </button>
+          <p class="auth-switch">
+            Already have an account?
+            <button id="reg-to-login" class="auth-link" type="button">Log in</button>
+          </p>
+        </div>
+        <p class="auth-hint">Demo: no real account is created.</p>
+      </div>
+    </section>
+
+    <!-- ============ Workspace ============ -->
+    <div id="workspace" class="workspace" hidden>
+      <aside id="sidebar" class="sidebar" aria-label="Sidebar navigation"></aside>
+      <div id="sidebar-overlay" class="sidebar-overlay" hidden></div>
+
+      <div class="workspace-main">
+        <header id="topbar" class="topbar"></header>
+        <main id="content" class="content" tabindex="-1"></main>
+        <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile navigation"></nav>
+      </div>
+    </div>
+
+    <!-- ============ Overlay roots ============ -->
+    <div id="menu-root" class="menu-root"></div>
+    <div id="modal-root" class="modal-root"></div>
+    <div id="slash-menu-root"></div>
+    <div id="format-toolbar" class="format-toolbar" role="toolbar" aria-label="Text formatting" hidden></div>
+    <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="false"></div>
+    <input type="file" id="import-file" accept=".txt,.md,.markdown" hidden />
+
+    <script src="js/data.js"></script>
+    <script src="js/store.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/search.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

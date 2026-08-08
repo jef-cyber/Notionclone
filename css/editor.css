@@ -1,0 +1,530 @@
+/* ============================================================
+   Lumen — page editor
+   ============================================================ */
+.editor-page {
+  animation: fade-up 0.2s ease both;
+  padding-top: 28px;
+}
+
+/* ---------- Page header ---------- */
+.page-header {
+  margin-bottom: 18px;
+}
+.page-header-icon {
+  width: 78px;
+  height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 62px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border: none;
+  background: none;
+  line-height: 1;
+}
+.page-header-icon:hover {
+  background: var(--bg-hover);
+}
+.page-header-title {
+  font-size: 40px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  margin-bottom: 8px;
+  cursor: text;
+  outline: none;
+  word-break: break-word;
+}
+.page-header-title[data-placeholder="true"]::before {
+  content: "Untitled";
+  color: var(--text-muted);
+  cursor: text;
+}
+.page-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.page-meta-sep {
+  color: var(--border-strong);
+}
+
+/* ---------- Blocks container ---------- */
+.editor-blocks {
+  position: relative;
+}
+.editor-blocks.is-empty {
+  padding: 20px 0 60px;
+}
+
+/* ---------- Block base ---------- */
+.block {
+  position: relative;
+  margin: 1px 0;
+  transition: background 0.12s ease;
+}
+.block.selected {
+  background: var(--bg-hover);
+  border-radius: 4px;
+}
+.block.is-dragging {
+  opacity: 0.45;
+}
+
+.block-controls {
+  position: absolute;
+  left: -44px;
+  top: 4px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.13s ease;
+  z-index: 5;
+}
+.block:hover .block-controls,
+.block.selected .block-controls {
+  opacity: 1;
+}
+.block-handle,
+.block-type-btn {
+  width: 18px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border-radius: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.block-handle {
+  cursor: grab;
+}
+.block-handle:active {
+  cursor: grabbing;
+}
+.block-handle:hover,
+.block-type-btn:hover {
+  background: var(--bg-active);
+  color: var(--text);
+}
+.block-handle .icon,
+.block-type-btn .icon {
+  width: 13px;
+  height: 13px;
+}
+.block-type-btn .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.block-content {
+  outline: none;
+  cursor: text;
+  word-break: break-word;
+}
+
+/* ---------- Text & headings ---------- */
+.block-text {
+  font-size: 16px;
+  line-height: 1.55;
+  padding: 3px 2px;
+}
+.block-text[data-placeholder="true"]::before {
+  content: "Type '/' for commands, or type anything…";
+  color: var(--text-muted);
+  pointer-events: none;
+  position: absolute;
+  left: 2px;
+}
+.block-heading1 {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin: 12px 0 4px;
+  padding: 3px 2px;
+}
+.block-heading2 {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin: 10px 0 4px;
+  padding: 3px 2px;
+}
+.block-heading3 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 8px 0 4px;
+  padding: 3px 2px;
+}
+
+/* ---------- Lists ---------- */
+.block-bulleted,
+.block-numbered {
+  display: flex;
+  gap: 8px;
+  padding: 3px 2px;
+}
+.list-marker {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: right;
+  color: var(--text);
+  user-select: none;
+  line-height: 1.55;
+}
+.block-bulleted .block-content,
+.block-numbered .block-content {
+  flex: 1;
+}
+
+/* ---------- To-do ---------- */
+.block-todo {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 3px 2px;
+}
+.todo-checkbox {
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--text-secondary);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: none;
+  color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+}
+.todo-checkbox .icon {
+  width: 11px;
+  height: 11px;
+}
+.todo-checkbox[data-checked="true"] {
+  background: var(--text-secondary);
+  border-color: var(--text-secondary);
+  color: var(--bg);
+}
+.block-todo[data-checked="true"] .block-content {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* ---------- Quote ---------- */
+.block-quote {
+  padding: 3px 2px 3px 14px;
+  border-left: 3px solid var(--text);
+  font-size: 16px;
+}
+
+/* ---------- Divider ---------- */
+.block-divider {
+  margin: 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  user-select: none;
+}
+.block-divider::before,
+.block-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+/* ---------- Callout ---------- */
+.block-callout {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  background: var(--callout-bg);
+  border-radius: 8px;
+  margin: 6px 0;
+}
+.callout-icon {
+  font-size: 18px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+.block-callout .block-content {
+  flex: 1;
+}
+
+/* ---------- Code ---------- */
+.block-code {
+  background: var(--code-bg);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin: 6px 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 13.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+/* ---------- Image ---------- */
+.block-image {
+  margin: 6px 0;
+}
+.block-image img {
+  border-radius: 8px;
+  max-height: 420px;
+  object-fit: cover;
+  width: 100%;
+  box-shadow: var(--shadow-sm);
+}
+.block-image-caption {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  padding: 2px;
+  outline: none;
+}
+
+/* ---------- Table ---------- */
+.block-table {
+  margin: 8px 0;
+  overflow-x: auto;
+}
+.block-table table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.block-table th,
+.block-table td {
+  border: 1px solid var(--border-strong);
+  padding: 7px 10px;
+  font-size: 14px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 100px;
+}
+.block-table th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+  outline: none;
+}
+.block-table td {
+  outline: none;
+}
+
+/* ---------- Toggle ---------- */
+.block-toggle {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 3px 2px;
+}
+.toggle-caret {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  transition: transform 0.15s ease;
+  margin-top: 2px;
+}
+.toggle-caret:hover {
+  background: var(--bg-hover);
+}
+.toggle-caret .icon {
+  width: 13px;
+  height: 13px;
+}
+.block-toggle[data-open="false"] .toggle-caret {
+  transform: rotate(-90deg);
+}
+.block-toggle[data-open="false"] + .toggle-children {
+  display: none;
+}
+.toggle-children {
+  padding-left: 26px;
+}
+
+/* ---------- Empty editor hint ---------- */
+.editor-empty-hint {
+  color: var(--text-muted);
+  font-size: 15px;
+  padding: 12px 2px;
+  cursor: text;
+}
+
+/* ============================================================
+   Slash command menu
+   ============================================================ */
+.slash-menu {
+  position: absolute;
+  z-index: 70;
+  width: 280px;
+  max-height: 340px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  padding: 5px;
+  animation: menu-in 0.12s ease both;
+}
+.slash-menu-header {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 6px 10px 4px;
+}
+.slash-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+  transition: background 0.1s ease;
+}
+.slash-item:hover,
+.slash-item[data-selected="true"] {
+  background: var(--bg-active);
+}
+.slash-item-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.slash-item-label {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.slash-item-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.slash-item-body {
+  flex: 1;
+  min-width: 0;
+}
+.slash-empty {
+  padding: 16px 10px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ============================================================
+   Floating formatting toolbar
+   ============================================================ */
+.format-toolbar {
+  position: absolute;
+  z-index: 75;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  animation: menu-in 0.12s ease both;
+}
+.format-toolbar .fmt-btn {
+  width: 27px;
+  height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: var(--text-secondary);
+  transition: background 0.12s ease, color 0.12s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.format-toolbar .fmt-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.format-toolbar .fmt-btn[data-active="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.format-toolbar .fmt-btn .icon {
+  width: 14px;
+  height: 14px;
+}
+.format-toolbar .fmt-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 3px;
+}
+.format-arrow {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 9px;
+  height: 9px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ---------- Block drag preview ---------- */
+.drag-preview {
+  position: fixed;
+  z-index: 130;
+  padding: 8px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  font-size: 13.5px;
+  pointer-events: none;
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

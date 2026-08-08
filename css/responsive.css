@@ -1,0 +1,201 @@
+/* ============================================================
+   Lumen — responsive layout
+   ============================================================ */
+
+/* ---------- Tablet / smaller laptops ---------- */
+@media (max-width: 1100px) {
+  .view {
+    padding: 28px 48px 140px;
+  }
+  .landing-main {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    text-align: center;
+    padding: 48px 24px;
+  }
+  .landing-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .landing-tagline {
+    max-width: 520px;
+  }
+  .landing-cta,
+  .landing-features {
+    justify-content: center;
+  }
+  .landing-visual img {
+    max-width: 420px;
+  }
+}
+
+/* ---------- Tablet / collapsed-by-default sidebar ---------- */
+@media (max-width: 1000px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 60;
+    width: 260px;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+    min-width: 260px;
+  }
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+  .sidebar.is-collapsed {
+    transform: translateX(-100%);
+  }
+  .sidebar.is-collapsed .sidebar-inner {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .sidebar-overlay {
+    display: block;
+  }
+  .sidebar-overlay[hidden] {
+    display: none;
+  }
+  .block-controls {
+    left: -36px;
+    width: 32px;
+  }
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 720px) {
+  .view {
+    padding: 24px 20px 120px;
+  }
+  .view-narrow {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  /* Topbar: keep essentials, allow horizontal scroll for breadcrumbs */
+  .topbar {
+    padding: 0 8px;
+    gap: 8px;
+  }
+  .search-trigger {
+    padding: 4px 8px;
+  }
+  .search-trigger .search-trigger-label,
+  .search-trigger kbd {
+    display: none;
+  }
+  .topbar-label-btn {
+    font-size: 0;
+    gap: 0;
+    padding: 5px 8px;
+  }
+  .topbar-label-btn .icon {
+    margin: 0;
+  }
+  .breadcrumb-item {
+    max-width: 120px;
+  }
+
+  /* Mobile bottom navigation */
+  .mobile-nav {
+    display: flex;
+  }
+  .content {
+    flex: 1;
+  }
+
+  /* Landing */
+  .landing-header {
+    padding: 12px 16px;
+  }
+  .landing-header .btn-ghost {
+    display: none;
+  }
+  .landing-main {
+    padding: 40px 20px;
+    gap: 32px;
+  }
+  .landing-title {
+    font-size: 30px;
+  }
+  .landing-tagline {
+    font-size: 15.5px;
+  }
+  .landing-footer {
+    flex-wrap: wrap;
+    padding: 12px;
+    font-size: 12px;
+  }
+
+  /* Editor */
+  .page-header-title {
+    font-size: 32px;
+  }
+  .page-header-icon {
+    width: 62px;
+    height: 62px;
+    font-size: 50px;
+  }
+  .block-controls {
+    display: none;
+  }
+  .format-toolbar {
+    position: fixed;
+    left: 50% !important;
+    bottom: 66px;
+    top: auto !important;
+    transform: translateX(-50%);
+  }
+  .format-toolbar .format-arrow {
+    display: none;
+  }
+
+  /* Cards & grids */
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+  .theme-options {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  /* Modals */
+  .modal {
+    width: calc(100vw - 24px);
+  }
+  .slash-menu {
+    position: fixed;
+    left: 12px !important;
+    right: 12px;
+    width: auto;
+    top: auto !important;
+    bottom: 76px;
+    max-height: 280px;
+  }
+
+  /* Toasts on mobile: bottom above the nav */
+  .toast-root {
+    bottom: 64px;
+  }
+}
+
+/* ---------- Small phones ---------- */
+@media (max-width: 420px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+  .quick-action {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .landing-features {
+    flex-direction: column;
+    align-items: center;
+  }
+  .theme-options {
+    grid-template-columns: 1fr;
+  }
+}
