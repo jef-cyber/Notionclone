@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Lumen — a Notion clone (frontend only)
 
 A polished, frontend-only Notion-style workspace built with **HTML5, CSS3, and vanilla JavaScript (ES6+)**. No frameworks, no build step, no backend — every feature runs entirely in the browser and persists to `localStorage`.
@@ -53,3 +54,7 @@ assets/
 - State is stored under the `lumen.state.v1` key in `localStorage`.
 - Modules attach to `window.Lumen` (`Lumen.store`, `Lumen.ui`, `Lumen.theme`, `Lumen.sidebar`, `Lumen.editor`, `Lumen.search`, `Lumen.app`) and must load in the order declared in `index.html`.
 - Formatting in the editor uses `document.execCommand` for compatibility and simplicity.
+=======
+# Notionclone
+A modern, feature-rich Notion-inspired workspace built with React, TypeScript, Tailwind CSS, and shadcn/ui, featuring rich text editing, databases, collaboration tools, and a clean, responsive UI.  Option 2
+>>>>>>> e65898f39faa009757d264f8ee37a3f3427789b9
