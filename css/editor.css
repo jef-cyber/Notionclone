@@ -4,6 +4,7 @@
 .editor-page {
   animation: fade-up 0.2s ease both;
   padding-top: 28px;
+  padding: 5%;
 }
 
 /* ---------- Page header ---------- */

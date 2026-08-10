@@ -11,7 +11,7 @@ window.LumenData = {
 
   workspace: {
     name: "My Workspace",
-    icon: "\u25C8", // ◈
+    icon: "../assets/icons/logo.png",
   },
 
   user: {

@@ -1,0 +1,243 @@
+<?xml version='1.0' encoding='utf-8'?>
+<repo n="Notionclone">
+  <meta>
+    <dep />
+  </meta>
+  <files>
+    <f p="js\app.js" e=".js">
+      <fn n="boot" p="()" />
+      <fn n="parseHash" p="()" />
+      <fn n="routeFromHash" p="()" />
+      <fn n="applyLoggedInRoute" p="(parsed)" />
+      <fn n="onHashChange" p="()" />
+      <fn n="setHash" p="(h)" />
+      <fn n="clearHash" p="()" />
+      <fn n="showLanding" p="()" />
+      <fn n="showLogin" p="()" />
+      <fn n="showRegister" p="()" />
+      <fn n="showAuthView" p="(which)" />
+      <fn n="showWorkspace" p="()" />
+      <fn n="applyPreferenceClasses" p="()" />
+      <fn n="wireLanding" p="()" />
+      <fn n="wireAuthForms" p="()" />
+      <fn n="setError" p="(errorEl, message)" />
+      <fn n="clearForm" p="(els)" />
+      <fn n="clearLogin" p="()" />
+      <fn n="submitLogin" p="()" />
+      <fn n="clearReg" p="()" />
+      <fn n="submitRegister" p="()" />
+      <fn n="navigate" p="(view)" />
+      <fn n="openPage" p="(id)" />
+      <fn n="logout" p="()" />
+      <fn n="onStoreChange" p="(reason)" />
+      <fn n="syncEditorMeta" p="()" />
+      <fn n="renderTopbar" p="()" />
+      <fn n="svg" p="(name)" />
+      <fn n="openMoreMenu" p="(page, x, y)" />
+      <fn n="doDelete" p="()" />
+      <fn n="openProfileMenu" p="(x, y)" />
+      <fn n="copyPageLink" p="(page)" />
+      <fn n="openShare" p="(page)" />
+      <fn n="openHelp" p="()" />
+      <fn n="toggleSidebar" p="()" />
+      <fn n="renderMobileNav" p="()" />
+      <fn n="btn" p="(id, view, iconName, label)" />
+      <fn n="createNewPage" p="()" />
+      <fn n="renderContent" p="()" />
+      <fn n="renderMissingPage" p="()" />
+      <fn n="renderDashboard" p="()" />
+      <fn n="pageCard" p="(page, showStar)" />
+      <fn n="emptyCard" p="(title, desc)" />
+      <fn n="formatDate" p="(d)" />
+      <fn n="renderInbox" p="()" />
+      <fn n="renderSettings" p="()" />
+      <fn n="renderTab" p="(tab)" />
+      <fn n="themeOption" p="(value, label, desc)" />
+      <fn n="toggleRow" p="(id, checked)" />
+      <fn n="renderTemplates" p="()" />
+      <fn n="createFromTemplate" p="(tpl)" />
+      <fn n="renderFavoritesView" p="()" />
+      <fn n="createWorkspacePage" p="()" />
+      <fn n="done" p="()" />
+      <fn n="escapeRegExp" p="(str)" />
+      <fn n="renderSearchPage" p="()" />
+      <fn n="hl" p="(text, ql)" />
+      <fn n="itemHtml" p="(r, i, title, snippet, ql)" />
+      <fn n="wireResultClicks" p="()" />
+      <fn n="renderEmpty" p="()" />
+      <fn n="onInput" p="()" />
+      <fn n="renderTrash" p="()" />
+      <fn n="openCommandPalette" p="()" />
+      <fn n="renderList" p="(filter)" />
+      <fn n="updateSel" p="()" />
+      <fn n="openSearch" p="()" />
+      <fn n="wireImport" p="()" />
+      <fn n="triggerImport" p="()" />
+      <fn n="wireGlobalShortcuts" p="()" />
+    </f>
+    <f p="js\auth.js" e=".js">
+      <fn n="validateLogin" p="(email, password)" />
+      <fn n="validateRegister" p="(name, email, password, confirm)" />
+      <fn n="login" p="(email, password)" />
+      <fn n="register" p="(name, email, password, confirm)" />
+      <fn n="googleLogin" p="()" />
+      <fn n="isLoggedIn" p="()" />
+      <fn n="logout" p="()" />
+    </f>
+    <f p="js\data.js" e=".js" />
+    <f p="js\editor.js" e=".js">
+      <fn n="render" p="(page, opts)" />
+      <fn n="syncMeta" p="(page)" />
+      <fn n="renderBlocks" p="()" />
+      <fn n="renderBlock" p="(block, numberSeq)" />
+      <fn n="makeEditable" p="(block, className, placeholder)" />
+      <fn n="makeTable" p="(block)" />
+      <fn n="attachBlockEvents" p="(wrap, block)" />
+      <fn n="onBlockKeydown" p="(wrap, block, editable, e)" />
+      <fn n="applySlashSelection" p="()" />
+      <fn n="getCaretOffset" p="(el)" />
+      <fn n="focusBlock" p="(blockId, atEnd)" />
+      <fn n="placeCaretAtEnd" p="(el)" />
+      <fn n="ensureEndBlock" p="()" />
+      <fn n="convert" p="()" />
+      <fn n="getSlashItems" p="(query)" />
+      <fn n="openSlashMenu" p="(blockEl, query)" />
+      <fn n="renderSlashMenu" p="()" />
+      <fn n="highlightSlash" p="()" />
+      <fn n="applySlashItem" p="(type)" />
+      <fn n="promptImage" p="(blockId)" />
+      <fn n="done" p="()" />
+      <fn n="closeSlashMenu" p="()" />
+      <fn n="repositionSlashMenu" p="(anchor)" />
+      <fn n="openTypeMenu" p="(block, x, y)" />
+      <fn n="openIconPicker" p="(btn)" />
+      <fn n="buildToolbar" p="()" />
+      <fn n="btn" p="(cmd, iconName, title, extra)" />
+      <fn n="sep" p="()" />
+      <fn n="updateFormatState" p="()" />
+      <fn n="onSelectionChange" p="()" />
+      <fn n="withinEditor" p="(sel)" />
+      <fn n="showToolbar" p="(sel)" />
+      <fn n="hideToolbar" p="()" />
+      <fn n="positionToolbar" p="(sel)" />
+      <fn n="init" p="()" />
+      <fn n="closeAll" p="()" />
+    </f>
+    <f p="js\search.js" e=".js">
+      <fn n="open" p="()" />
+      <fn n="close" p="()" />
+      <fn n="renderRecent" p="()" />
+      <fn n="onInput" p="()" />
+      <fn n="resultItemHtml" p="(page, i, title, snippet, ql)" />
+      <fn n="hl" p="(text)" />
+      <fn n="escapeRegExp" p="(str)" />
+      <fn n="wireResultEvents" p="()" />
+      <fn n="highlight" p="()" />
+      <fn n="go" p="(id)" />
+      <fn n="onKeydown" p="(e)" />
+      <fn n="scrollSelectedIntoView" p="()" />
+    </f>
+    <f p="js\sidebar.js" e=".js">
+      <fn n="openPage" p="(id)" />
+      <fn n="navigate" p="(view)" />
+      <fn n="renderNav" p="()" />
+      <fn n="renderTree" p="(container, parentId, depth)" />
+      <fn n="attachRowEvents" p="(wrap, page)" />
+      <fn n="openPageMenu" p="(id, page, x, y)" />
+      <fn n="doDelete" p="()" />
+      <fn n="buildMoveItems" p="(id)" />
+      <fn n="startRename" p="(wrap, page)" />
+      <fn n="finish" p="(save)" />
+      <fn n="startRenameOnMenu" p="(id)" />
+      <fn n="attachDrag" p="(row)" />
+      <fn n="clearDropTargets" p="()" />
+      <fn n="onTreeDragover" p="(e)" />
+      <fn n="onTreeDrop" p="(e)" />
+      <fn n="renderFavorites" p="()" />
+      <fn n="openWorkspaceMenu" p="(btn)" />
+      <fn n="renderAll" p="()" />
+      <fn n="init" p="()" />
+      <fn n="setCollapsed" p="(collapsed)" />
+      <fn n="toggleCollapsed" p="()" />
+      <fn n="setMobileOpen" p="(open)" />
+    </f>
+    <f p="js\store.js" e=".js">
+      <fn n="uid" p="(prefix)" />
+      <fn n="clone" p="(obj)" />
+      <fn n="buildInitial" p="()" />
+      <fn n="load" p="()" />
+      <fn n="save" p="()" />
+      <fn n="saveDebounced" p="()" />
+      <fn n="commit" p="(reason)" />
+      <fn n="mutate" p="(fn, reason)" />
+      <fn n="getState" p="()" />
+      <fn n="pagesById" p="()" />
+      <fn n="getPage" p="(id)" />
+      <fn n="getChildren" p="(id)" />
+      <fn n="getChildrenRaw" p="(id)" />
+      <fn n="getDescendantIds" p="(id)" />
+      <fn n="walk" p="(pid)" />
+      <fn n="getPath" p="(id)" />
+      <fn n="getFavorites" p="()" />
+      <fn n="getTopLevelPages" p="()" />
+      <fn n="getSiblings" p="(id)" />
+      <fn n="createPage" p="(opts)" />
+      <fn n="ensureBlockIds" p="(block, i)" />
+      <fn n="updatePage" p="(id, patch, reason)" />
+      <fn n="toggleFavorite" p="(id)" />
+      <fn n="deletePage" p="(id)" />
+      <fn n="moveToTrash" p="(id)" />
+      <fn n="restorePage" p="(id)" />
+      <fn n="deletePagePermanently" p="(id)" />
+      <fn n="emptyTrash" p="()" />
+      <fn n="getTrashPages" p="()" />
+      <fn n="duplicatePage" p="(id)" />
+      <fn n="movePage" p="(id, parentId, beforeId)" />
+      <fn n="getPageBlocks" p="(id)" />
+      <fn n="updateBlock" p="(id, blockId, patch)" />
+      <fn n="updatePageIcon" p="(id, icon)" />
+      <fn n="addBlock" p="(pageId, type, content, index)" />
+      <fn n="removeBlock" p="(pageId, blockId)" />
+      <fn n="setBlockType" p="(pageId, blockId, type)" />
+      <fn n="moveBlockIndex" p="(pageId, fromIdx, toIdx)" />
+      <fn n="navigate" p="(pageId)" />
+      <fn n="setView" p="(view)" />
+      <fn n="setLoggedIn" p="(v)" />
+      <fn n="touchRecent" p="(list, id)" />
+      <fn n="setRecent" p="(id)" />
+      <fn n="markNotificationsRead" p="()" />
+      <fn n="searchPages" p="(query)" />
+      <fn n="addRecentSearch" p="(query)" />
+      <fn n="clearRecentSearches" p="()" />
+      <fn n="getRecentSearches" p="()" />
+      <fn n="updateUser" p="(patch)" />
+      <fn n="onChange" p="(fn)" />
+    </f>
+    <f p="js\theme.js" e=".js">
+      <fn n="resolve" p="()" />
+      <fn n="applyTheme" p="(withTransition)" />
+      <fn n="setTheme" p="(t)" />
+      <fn n="toggleTheme" p="()" />
+    </f>
+    <f p="js\ui.js" e=".js">
+      <fn n="icon" p="(name, size)" />
+      <fn n="escapeHtml" p="(str)" />
+      <fn n="debounce" p="(fn, wait)" />
+      <fn n="initials" p="(name)" />
+      <fn n="isMobile" p="()" />
+      <fn n="copyToClipboard" p="(text)" />
+      <fn n="fallbackCopy" p="(text)" />
+      <fn n="showToast" p="(message, type)" />
+      <fn n="closeModal" p="()" />
+      <fn n="openModal" p="(opts)" />
+      <fn n="confirmDialog" p="(opts)" />
+      <fn n="closeMenus" p="()" />
+      <fn n="fitToViewport" p="(el, x, y)" />
+      <fn n="buildMenuEl" p="(opts)" />
+      <fn n="openSubmenu" p="(anchor, items)" />
+      <fn n="toggleSubmenu" p="(anchor, items)" />
+      <fn n="openMenu" p="(opts)" />
+      <fn n="openMenuAt" p="(anchor, opts)" />
+    </f>
+  </files>
+</repo>
