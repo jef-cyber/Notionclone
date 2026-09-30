@@ -13,6 +13,10 @@
   let resultsEl = null;
   let items = [];
   let selected = 0;
+  let searchTimer = null;
+  // Monotonic token: a slow response for an old query must never overwrite the
+  // results of a newer one.
+  let queryToken = 0;
 
   function open() {
     if (modal) close();
@@ -38,6 +42,8 @@
   }
 
   function close() {
+    clearTimeout(searchTimer);
+    queryToken += 1; // drop any in-flight search
     if (modal) {
       ui.closeModal();
       modal = null;
@@ -63,7 +69,7 @@
     resultsEl.innerHTML =
       '<div class="search-group-label">Recent</div>' +
       recents
-        .map((p, i) => resultItemHtml(p, i, p.title, ""))
+        .map((p, i) => resultItemHtml(p, i, p.title || "Untitled", ""))
         .join("") +
       '<div class="search-empty" style="padding:16px 10px;text-align:left;color:var(--text-muted);font-size:12.5px">Search all pages by typing above</div>';
 
@@ -74,11 +80,30 @@
 
   function onInput() {
     const q = input.value.trim();
+    clearTimeout(searchTimer);
     if (!q) {
+      queryToken += 1;
       renderRecent();
       return;
     }
-    const results = store.searchPages(q);
+
+    resultsEl.innerHTML = '<div class="search-group-label">Search results</div>' + loadingHtml();
+    // The API needs a round trip, so debounce rather than firing per keystroke.
+    searchTimer = setTimeout(() => runSearch(q), 180);
+  }
+
+  async function runSearch(q) {
+    const token = ++queryToken;
+    let results = [];
+    try {
+      results = await store.searchPages(q);
+    } catch (err) {
+      if (token !== queryToken) return;
+      results = [];
+    }
+    if (token !== queryToken) return; // a newer query already won
+    if (!input || !input.value.trim()) return;
+
     items = results;
     selected = 0;
 
@@ -106,6 +131,12 @@
 
     wireResultEvents();
     highlight();
+  }
+
+  function loadingHtml() {
+    return (
+      '<div class="search-empty">' + ui.icon("search") + "<br/><br/>Searching\u2026</div>"
+    );
   }
 
   function resultItemHtml(page, i, title, snippet, ql) {
@@ -179,7 +210,7 @@
     } else if (e.key === "Enter") {
       e.preventDefault();
       const item = items[selected];
-      if (item) go(item.id || item.page.id);
+      if (item) go(item.page ? item.page.id : item.id);
     } else if (e.key === "Escape") {
       close();
     }

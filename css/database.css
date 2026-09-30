@@ -1,0 +1,540 @@
+/* ============================================================
+   Lumen — database block views.
+
+   Table, board, calendar and roadmap are four renderings of one
+   `dataTable` document, so they share every piece of chrome here.
+   All colors come from the tokens in style.css, so dark mode is free.
+   ============================================================ */
+
+.db {
+  margin: 6px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.db-status {
+  padding: 22px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ---------- toolbar ---------- */
+.db-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.db-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.db-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.db-tabs {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.db-tab {
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.db-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.db-tab[data-active="true"] {
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.db-body {
+  padding: 0;
+}
+
+.db-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+.db-empty p {
+  margin: 0;
+  max-width: 380px;
+}
+
+.db-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+/* ---------- shared cell controls ---------- */
+.db-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.db-input,
+.db-select,
+.db-date {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.db-input:hover,
+.db-select:hover,
+.db-date:hover {
+  border-color: var(--border);
+}
+.db-input:focus,
+.db-select:focus,
+.db-date:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+.db-input::placeholder {
+  color: var(--text-muted);
+}
+
+.db-cell input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.db-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+.db-icon-btn .icon {
+  width: 15px;
+  height: 15px;
+}
+.db-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.db-icon-btn[data-danger]:hover {
+  color: var(--danger);
+}
+.db-row:hover .db-icon-btn,
+.db-card:hover .db-icon-btn,
+.db-cal-day:hover .db-icon-btn {
+  opacity: 1;
+}
+/* Touch devices have no hover, so the control is always visible there. */
+@media (hover: none) {
+  .db-icon-btn {
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   Table view
+   ============================================================ */
+.db-table-wrap {
+  overflow-x: auto;
+}
+
+.db-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.db-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.db-table td {
+  padding: 1px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.db-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.db-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.db-col-primary {
+  min-width: 190px;
+  font-weight: 500;
+}
+
+.db-row-actions {
+  width: 34px;
+  text-align: right;
+}
+
+.db-footer {
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+}
+
+/* ============================================================
+   Board view
+   ============================================================ */
+.db-board {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  overflow-x: auto;
+  align-items: flex-start;
+}
+
+.db-board-col {
+  flex: 0 0 236px;
+  max-height: 460px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  transition: background 0.12s ease;
+}
+.db-board-col.is-over {
+  background: var(--accent-soft);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.db-board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 6px;
+}
+.db-board-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.db-board-count {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.db-board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 6px;
+  overflow-y: auto;
+}
+
+.db-card {
+  position: relative;
+  padding: 8px 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+}
+.db-card:hover {
+  border-color: var(--border-strong);
+}
+.db-card.is-dragging {
+  opacity: 0.45;
+}
+.db-card .db-icon-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+.db-card .db-cell {
+  padding-right: 20px;
+}
+
+.db-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.db-pill {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.db-pill-date {
+  color: var(--text-muted);
+}
+.db-pill-check {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.db-board-add {
+  margin: 6px;
+  padding: 5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.db-board-add:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* ============================================================
+   Calendar view
+   ============================================================ */
+.db-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.db-cal-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.db-cal-head .db-icon-btn {
+  opacity: 1;
+}
+.db-cal-head .db-icon-btn:first-child svg {
+  transform: none;
+}
+
+.db-cal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.db-cal-dow {
+  padding: 6px 8px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.db-cal-day {
+  min-height: 78px;
+  padding: 4px 5px;
+  background: var(--surface);
+}
+.db-cal-day.is-empty {
+  background: var(--bg-secondary);
+}
+
+.db-cal-num {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  text-align: right;
+}
+
+.db-cal-chip {
+  margin-bottom: 3px;
+  padding: 2px 6px;
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 11.5px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.db-cal-chip:hover {
+  background: var(--bg-active);
+}
+
+.db-cal .btn {
+  margin: 8px 10px;
+}
+
+/* ---------- row dialog ---------- */
+.db-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.db-dialog .field label {
+  font-size: 11.5px;
+}
+.db-dialog input[type="text"],
+.db-dialog input[type="number"],
+.db-dialog input[type="date"],
+.db-dialog select {
+  width: 100%;
+}
+
+/* ============================================================
+   Roadmap view
+   ============================================================ */
+.db-roadmap {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.db-roadmap-head,
+.db-roadmap-row {
+  display: flex;
+  align-items: stretch;
+  min-width: max-content;
+}
+
+.db-roadmap-head {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.db-roadmap-corner,
+.db-roadmap-label {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  flex: 0 0 130px;
+  padding: 7px 10px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+}
+.db-roadmap-label {
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.db-roadmap-months,
+.db-roadmap-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 132px;
+  flex: 1;
+}
+
+.db-roadmap-month {
+  padding: 7px 10px;
+  border-right: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.db-roadmap-row {
+  border-bottom: 1px solid var(--border);
+}
+
+.db-roadmap-slot {
+  border-right: 1px dashed var(--border);
+}
+
+.db-roadmap-bar {
+  align-self: center;
+  margin: 5px 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 11.5px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.db-roadmap-bar:hover {
+  background: var(--bg-active);
+}
+
+@media (max-width: 720px) {
+  .db-tabs {
+    margin-left: 0;
+    width: 100%;
+    overflow-x: auto;
+  }
+  .db-cal-day {
+    min-height: 58px;
+  }
+  .db-board-col {
+    flex-basis: 200px;
+  }
+}

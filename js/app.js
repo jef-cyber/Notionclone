@@ -1,6 +1,6 @@
 /* ============================================================
    Lumen — app: boot, auth flow, landing, workspace chrome
-   (topbar, mobile nav), view rendering (dashboard, page, inbox,
+   (topbar, mobile nav), view rendering (dashboard, page, activity,
    settings, templates, favorites, search, trash), command
    palette, and keyboard shortcuts.
    ============================================================ */
@@ -22,7 +22,7 @@
   /* ============================================================
      Boot
      ============================================================ */
-  function boot() {
+  async function boot() {
     window.Lumen.theme.apply();
     window.Lumen.sidebar.init();
     window.Lumen.editor.init();
@@ -35,6 +35,8 @@
 
     applyPreferenceClasses();
 
+    // A stored token only means anything once the API confirms it.
+    await store.loadSession();
     routeFromHash();
   }
 
@@ -87,6 +89,15 @@
     if (parsed.route !== state.view) store.setView(parsed.route);
     showWorkspace();
   }
+
+  /** Let the store react to session loss no matter where the request failed. */
+  window.addEventListener("lumen:unauthorized", () => {
+    store.clearSession();
+    ui.closeMenus();
+    ui.closeModal();
+    clearHash();
+    showLanding();
+  });
 
   function onHashChange() {
     routeFromHash();
@@ -187,28 +198,67 @@
         el.closest(".auth-field").classList.remove("has-error");
       });
     };
+    // A failure that isn't tied to one field (bad credentials, server down) is
+    // shown in a banner above the button.
+    const showFormError = (message) => {
+      let banner = document.querySelector("#auth-form-error");
+      if (!banner) {
+        banner = document.createElement("p");
+        banner.id = "auth-form-error";
+        banner.className = "auth-error-banner";
+        const host = document.querySelector(".auth-view:not([hidden]) .auth-form");
+        if (!host) return;
+        host.insertBefore(banner, host.querySelector(".btn"));
+      }
+      banner.textContent = message || "";
+    };
+    const clearFormError = () => showFormError("");
+
+    const setBusy = (button, busy, label) => {
+      button.disabled = busy;
+      button.textContent = busy ? "Working\u2026" : label;
+    };
+
+    const applyErrors = (errEls, errors) => {
+      clearForm(Object.keys(errEls).map((k) => errEls[k]).filter(Boolean));
+      showFormError("");
+      let placed = false;
+      Object.keys(errors).forEach((key) => {
+        if (errEls[key]) {
+          setError(errEls[key], errors[key]);
+          placed = true;
+        }
+      });
+      if (!placed) showFormError(errors.form);
+    };
 
     // ---- Login ----
     const loginEmail = document.getElementById("login-email");
     const loginPassword = document.getElementById("login-password");
+    const loginSubmit = document.getElementById("login-submit");
     const loginErr = {
       email: document.getElementById("login-email-error"),
       password: document.getElementById("login-password-error"),
     };
-    const clearLogin = () => clearForm([loginErr.email, loginErr.password]);
-    const submitLogin = () => {
+    const clearLogin = () => {
+      clearForm([loginErr.email, loginErr.password]);
+      clearFormError();
+    };
+    const submitLogin = async () => {
       clearLogin();
-      const res = window.Lumen.auth.login(loginEmail.value, loginPassword.value);
+      setBusy(loginSubmit, true, "Log in");
+      const res = await window.Lumen.auth.login(loginEmail.value, loginPassword.value);
+      setBusy(loginSubmit, false, "Log in");
       if (!res.ok) {
-        Object.keys(res.errors).forEach((k) => {
-          if (loginErr[k]) setError(loginErr[k], res.errors[k]);
-        });
+        applyErrors(loginErr, res.errors);
         return;
       }
+      store.adoptSession(res);
+      await store.refreshPages();
       ui.showToast("Welcome back", "success");
       navigate("dashboard");
     };
-    document.getElementById("login-submit").addEventListener("click", submitLogin);
+    loginSubmit.addEventListener("click", submitLogin);
     loginEmail.addEventListener("keydown", (e) => {
       if (e.key === "Enter") submitLogin();
     });
@@ -217,11 +267,6 @@
     });
     loginEmail.addEventListener("input", clearLogin);
     loginPassword.addEventListener("input", clearLogin);
-    document.getElementById("login-google").addEventListener("click", () => {
-      window.Lumen.auth.googleLogin();
-      ui.showToast("Signed in with Google (demo)", "success");
-      navigate("dashboard");
-    });
     document.getElementById("login-to-register").addEventListener("click", () => {
       clearLogin();
       showRegister();
@@ -232,41 +277,42 @@
     const regEmail = document.getElementById("reg-email");
     const regPassword = document.getElementById("reg-password");
     const regConfirm = document.getElementById("reg-confirm");
+    const regSubmit = document.getElementById("reg-submit");
     const regErr = {
       name: document.getElementById("reg-name-error"),
       email: document.getElementById("reg-email-error"),
       password: document.getElementById("reg-password-error"),
       confirm: document.getElementById("reg-confirm-error"),
     };
-    const clearReg = () => clearForm([regErr.name, regErr.email, regErr.password, regErr.confirm]);
-    const submitRegister = () => {
+    const clearReg = () => {
+      clearForm([regErr.name, regErr.email, regErr.password, regErr.confirm]);
+      clearFormError();
+    };
+    const submitRegister = async () => {
       clearReg();
-      const res = window.Lumen.auth.register(
+      setBusy(regSubmit, true, "Create account");
+      const res = await window.Lumen.auth.register(
         regName.value,
         regEmail.value,
         regPassword.value,
         regConfirm.value
       );
+      setBusy(regSubmit, false, "Create account");
       if (!res.ok) {
-        Object.keys(res.errors).forEach((k) => {
-          if (regErr[k]) setError(regErr[k], res.errors[k]);
-        });
+        applyErrors(regErr, res.errors);
         return;
       }
+      store.adoptSession(res);
+      await store.refreshPages();
       ui.showToast("Account created \u2014 welcome to Lumen!", "success");
       navigate("dashboard");
     };
-    document.getElementById("reg-submit").addEventListener("click", submitRegister);
+    regSubmit.addEventListener("click", submitRegister);
     [regName, regEmail, regPassword, regConfirm].forEach((input) => {
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") submitRegister();
       });
       input.addEventListener("input", clearReg);
-    });
-    document.getElementById("reg-google").addEventListener("click", () => {
-      window.Lumen.auth.googleLogin();
-      ui.showToast("Signed in with Google (demo)", "success");
-      navigate("dashboard");
     });
     document.getElementById("reg-to-login").addEventListener("click", () => {
       clearReg();
@@ -297,30 +343,46 @@
     showWorkspace();
   }
 
-  function openPage(id) {
+  async function openPage(id) {
     const page = store.getPage(id);
     if (!page) {
+      // A deep link can name a page this workspace doesn't have.
       store.getState().view = "page";
       store.getState().currentPageId = id;
       renderContent();
       return;
     }
-    if (page.deletedAt) {
+    if (page.isArchived) {
       ui.showToast("This page is in the trash", "info");
       navigate("trash");
       return;
     }
+
+    // Blocks live in their own collection, so the editor needs them before it
+    // can render. Everything queued on the previous page goes out now.
+    store.flushPage(store.getState().currentPageId);
+    const target = await store.hydratePage(id);
+    if (!target) {
+      store.refreshPages();
+      renderMissingPage();
+      return;
+    }
+
     store.navigate(id);
     if (ui.isMobile()) window.Lumen.sidebar.setMobileOpen(false);
     setHash("#page/" + id);
   }
 
   function logout() {
-    window.Lumen.auth.logout();
-    ui.closeMenus();
-    ui.closeModal();
-    clearHash();
-    showLanding();
+    // Don't lose the last few keystrokes on the way out.
+    store.flushAll();
+    window.Lumen.auth.logout().then(() => {
+      store.clearSession();
+      ui.closeMenus();
+      ui.closeModal();
+      clearHash();
+      showLanding();
+    });
   }
 
   /* ============================================================
@@ -343,6 +405,7 @@
         if (store.getState().view === "search") renderContent();
         break;
       case "user":
+      case "workspace":
         renderTopbar();
         renderMobileNav();
         if (store.getState().view === "settings") renderContent();
@@ -352,17 +415,17 @@
         renderTopbar();
         syncEditorMeta();
         break;
+      case "meta":
+        // The server confirmed a queued edit. The DOM already shows it, so
+        // don't re-render the editor and lose the caret.
+        window.Lumen.sidebar.render();
+        break;
       case "favorites":
         renderTopbar();
         renderMobileNav();
         if (store.getState().view === "favorites" || store.getState().view === "dashboard") {
           renderContent();
         }
-        break;
-      case "notifications":
-        renderTopbar();
-        renderMobileNav();
-        if (store.getState().view === "inbox") renderContent();
         break;
       default:
         break;
@@ -384,7 +447,6 @@
     const isPage = state.view === "page";
     const page = isPage ? store.getPage(state.currentPageId) : null;
     const isMobile = ui.isMobile();
-
     // breadcrumbs
     let crumbs = "";
     if (isPage && page) {
@@ -408,7 +470,7 @@
     } else {
       const viewName = {
         dashboard: "Home",
-        inbox: "Inbox",
+        inbox: "Activity",
         settings: "Settings",
         templates: "Templates",
         favorites: "Favorites",
@@ -418,7 +480,7 @@
       }[state.view] || "Home";
       crumbs =
         '<button class="breadcrumb-item" data-nav-page="workspace">' +
-        ui.escapeHtml(state.workspace.name) +
+        ui.escapeHtml(state.workspace.name || "Workspace") +
         "</button>" +
         '<span class="breadcrumb-sep">/</span>' +
         '<button class="breadcrumb-item" aria-current="page">' +
@@ -428,7 +490,7 @@
 
     const favState = page ? page.favorite : false;
     const searchLabel = isMobile ? "" : "<span>Search</span>";
-    const kbdHint = isMobile ? "" : "<kbd>" + (navigator.platform.match(/Mac/i) ? "\u2318" : "Ctrl") + " K</kbd>";
+    const kbdHint = isMobile ? "" : "<kbd>" + (ui.isApple() ? "\u2318" : "Ctrl") + " K</kbd>";
 
     topbarEl.innerHTML =
       '<div class="topbar-left">' +
@@ -460,7 +522,7 @@
       ui.icon("more") +
       "</button>" +
       '<button class="avatar" data-avatar aria-haspopup="menu">' +
-      ui.escapeHtml(ui.initials(state.user.name)) +
+      ui.escapeHtml(ui.initials(state.user.name || "?")) +
       "</button>" +
       "</div>";
 
@@ -491,10 +553,6 @@
       const r = e.currentTarget.getBoundingClientRect();
       openProfileMenu(r.left, r.bottom + 4);
     });
-  }
-
-  function svg(name) {
-    return ui.PATHS[name] || "";
   }
 
   /* ---------- topbar menus ---------- */
@@ -575,7 +633,7 @@
     ui.openMenu({
       x,
       y,
-      header: { name: state.user.name, sub: state.user.email },
+      header: { name: state.user.name || "", sub: state.user.email || "" },
       items: [
         { label: "My Profile", icon: "user", action: () => navigate("settings") },
         { label: "Settings", icon: "settings", action: () => navigate("settings") },
@@ -603,16 +661,39 @@
 
   function openShare(page) {
     const url = location.origin + location.pathname + "#page/" + page.id;
+    const members = store.getState().members;
     const modal = ui.openModal({
       title: "Share",
       size: "modal-sm",
       body:
-        '<p>Share this page with your team. Anyone with the link can view it (demo only \u2014 no backend).</p>' +
+        '<p>Anyone with this link still has to be a member of <strong>' +
+        ui.escapeHtml(store.getState().workspace.name || "this workspace") +
+        "</strong> to open the page.</p>" +
         '<div class="share-link-row"><input id="share-url" readonly value="' +
         ui.escapeHtml(url) +
         '" /><button class="btn btn-secondary" id="share-copy">' +
         ui.icon("copy") +
-        " Copy</button></div>",
+        " Copy</button></div>" +
+        (members.length
+          ? '<h3 class="settings-section-title" style="margin-top:16px">Members (' +
+            members.length +
+            ")</h3><div class=\"share-members\">" +
+            members
+              .map(
+                (m) =>
+                  '<div class="share-member"><span class="avatar">' +
+                  ui.escapeHtml(ui.initials(m.name)) +
+                  '</span><span class="share-member-body"><span class="share-member-name">' +
+                  ui.escapeHtml(m.name) +
+                  '</span><span class="share-member-email">' +
+                  ui.escapeHtml(m.email) +
+                  '</span></span><span class="share-member-role">' +
+                  ui.escapeHtml(m.role) +
+                  "</span></div>"
+              )
+              .join("") +
+            "</div>"
+          : ""),
       footer: '<button class="btn btn-primary" data-modal-close>Done</button>',
     });
     modal.querySelector("#share-copy").addEventListener("click", () => {
@@ -678,7 +759,7 @@
       btn("home", "dashboard", "home", "Home") +
       btn("search", null, "search", "Search") +
       btn("new", null, "plus", "New") +
-      btn("inbox", "inbox", "inbox", "Inbox") +
+      btn("inbox", "inbox", "inbox", "Activity") +
       btn("settings", "settings", "settings", "Settings");
 
     mobileNavEl.querySelectorAll("[data-mnav]").forEach((b) => {
@@ -691,8 +772,8 @@
     });
   }
 
-  function createNewPage() {
-    const p = store.createPage({});
+  async function createNewPage() {
+    const p = await store.createPage({});
     ui.showToast("Page created", "success");
     openPage(p.id);
   }
@@ -711,6 +792,12 @@
         renderMissingPage();
         return;
       }
+      // Blocks are a separate collection and load on demand; don't render a
+      // half-empty editor.
+      if (!page.blocksLoaded) {
+        renderLoading();
+        return;
+      }
       // autofocus title on brand new/empty pages
       contentEl.appendChild(window.Lumen.editor.render(page, { focusTitle: !page.blocks.length }));
       return;
@@ -723,6 +810,16 @@
     else if (state.view === "search") renderSearchPage();
     else if (state.view === "trash") renderTrash();
     else renderDashboard();
+  }
+
+  function renderLoading() {
+    const wrap = document.createElement("div");
+    wrap.className = "view";
+    wrap.innerHTML =
+      '<div class="empty-state"><div class="empty-icon">\uD83D\uDCC4</div>' +
+      '<h2 class="empty-title">Loading\u2026</h2>' +
+      '<p class="empty-desc">Fetching this page from the server.</p></div>';
+    contentEl.appendChild(wrap);
   }
 
   function renderMissingPage() {
@@ -807,13 +904,16 @@
   function pageCard(page, showStar) {
     const btn = document.createElement("button");
     btn.className = "card";
+    // updatedAt is an ISO timestamp; every other surface in the app renders
+    // ages as "3 min ago", so don't leak the raw string into a card.
+    const when = ui.relativeTime(page.updatedAt);
     btn.innerHTML =
       '<span class="card-icon">' +
       ui.escapeHtml(page.icon || "\uD83D\uDCDD") +
       '</span><span class="card-body"><span class="card-title">' +
       ui.escapeHtml(page.title || "Untitled") +
-      '</span><span class="card-sub">Updated ' +
-      ui.escapeHtml(page.updatedAt || "") +
+      '</span><span class="card-sub">' +
+      (when ? "Updated " + ui.escapeHtml(when) : "Not yet saved") +
       "</span></span>" +
       (showStar
         ? '<span class="card-star" data-active="true" aria-label="Remove from favorites">' +
@@ -851,79 +951,63 @@
     });
   }
 
-  /* ---------- Inbox ---------- */
+  /* ---------- Activity ---------- */
+  /**
+   * There is no notifications collection: activity is derived from the pages
+   * collection, newest first.
+   */
   function renderInbox() {
-    const state = store.getState();
     const wrap = document.createElement("div");
     wrap.className = "view view-narrow";
+    const activity = store.getActivity();
+    const pages = store.getState().pages.filter((p) => !p.isArchived).length;
 
-    const unread = state.notifications.filter((n) => !n.read).length;
     wrap.innerHTML =
-      '<h1 style="font-size:28px;font-weight:700;margin-bottom:4px">Inbox</h1>' +
+      '<h1 style="font-size:28px;font-weight:700;margin-bottom:4px">Activity</h1>' +
       '<p class="dash-date">' +
-      (unread ? unread + " unread notifications" : "You\u2019re all caught up") +
+      (activity.length
+        ? "The " + pages + " page" + (pages === 1 ? "" : "s") + " in this workspace, most recently changed first."
+        : "Nothing here yet.") +
       "</p>";
 
-    const groups = {};
-    state.notifications.forEach((n) => {
-      (groups[n.group] = groups[n.group] || []).push(n);
-    });
-
-    const groupNames = Object.keys(groups);
-    if (!groupNames.length) {
+    if (!activity.length) {
       wrap.insertAdjacentHTML(
         "beforeend",
-        '<div class="empty-state"><div class="empty-icon">\uD83D\uDCE7</div><h2 class="empty-title">No notifications</h2>' +
-          '<p class="empty-desc">You\u2019re all caught up!</p></div>'
+        '<div class="empty-state"><div class="empty-icon">' +
+          ui.icon("inbox") +
+          '</div><h2 class="empty-title">No activity yet</h2>' +
+          '<p class="empty-desc">Create or edit a page and it shows up here.</p></div>'
       );
-    } else {
-      if (unread) {
-        wrap.insertAdjacentHTML(
-          "beforeend",
-          '<button class="btn btn-ghost" style="margin-bottom:8px" data-readall>' +
-            ui.icon("check") +
-            " Mark all as read</button>"
-        );
-        wrap.querySelector("[data-readall]").addEventListener("click", () => {
-          store.markNotificationsRead();
-          ui.showToast("All notifications marked as read", "success");
-        });
-      }
-      groupNames.forEach((group) => {
-        wrap.insertAdjacentHTML(
-          "beforeend",
-          '<h3 class="inbox-group-title">' + ui.escapeHtml(group) + "</h3>"
-        );
-        groups[group].forEach((n) => {
-          const btn = document.createElement("button");
-          btn.className = "inbox-item";
-          btn.dataset.read = String(n.read);
-          btn.innerHTML =
-            '<span class="inbox-icon">' +
-            ui.escapeHtml(n.icon) +
-            '</span><span class="inbox-body"><span class="inbox-text">' +
-            n.html +
-            '</span><div class="inbox-time">' +
-            ui.escapeHtml(n.time) +
-            "</div></span>" +
-            (n.read ? "" : '<span class="inbox-unread"></span>');
-          btn.addEventListener("click", () => {
-            if (n.pageId) {
-              const page = store.getPage(n.pageId);
-              if (page) {
-                if (!n.read) store.markNotificationsRead();
-                openPage(n.pageId);
-              } else {
-                ui.showToast("That page no longer exists", "info");
-              }
-            } else {
-              ui.showToast("Notification opened", "info");
-            }
-          });
-          wrap.appendChild(btn);
-        });
-      });
+      contentEl.appendChild(wrap);
+      return;
     }
+
+    const groups = {};
+    activity.forEach((item) => {
+      (groups[item.group] = groups[item.group] || []).push(item);
+    });
+
+    Object.keys(groups).forEach((group) => {
+      wrap.insertAdjacentHTML(
+        "beforeend",
+        '<h3 class="inbox-group-title">' + ui.escapeHtml(group) + "</h3>"
+      );
+      groups[group].forEach((item) => {
+        const btn = document.createElement("button");
+        btn.className = "inbox-item";
+        btn.innerHTML =
+          '<span class="inbox-icon">' +
+          ui.escapeHtml(item.icon) +
+          '</span><span class="inbox-body"><span class="inbox-text">' +
+          ui.escapeHtml(item.title || "Untitled") +
+          '</span><div class="inbox-time">' +
+          ui.escapeHtml(ui.relativeTime(item.time)) +
+          "</div></span>";
+        btn.addEventListener("click", () => openPage(item.pageId));
+        wrap.appendChild(btn);
+      });
+    });
+
     contentEl.appendChild(wrap);
   }
 
@@ -956,7 +1040,7 @@
         body.innerHTML =
           '<div class="settings-section">' +
           '<h2 class="settings-section-title">My Account</h2>' +
-          '<p class="settings-section-desc">Your profile is stored locally in this browser.</p>' +
+          '<p class="settings-section-desc">Your profile is stored in the <code>users</code> collection.</p>' +
           '<div class="avatar-edit"><span class="avatar avatar-lg" id="settings-avatar">' +
           ui.escapeHtml(ui.initials(u.name)) +
           '</span><div class="field" style="margin:0"><label for="f-name">Name</label><input id="f-name" value="' +
@@ -965,20 +1049,35 @@
           '<div class="field"><label for="f-email">Email</label><input id="f-email" type="email" value="' +
           ui.escapeHtml(u.email) +
           '" /></div>' +
-          '<div class="field"><label for="f-username">Username</label><input id="f-username" value="' +
-          ui.escapeHtml(u.username) +
-          '" /></div>' +
+          '<div class="field"><label for="f-workspace">Workspace</label><input id="f-workspace" value="' +
+          ui.escapeHtml(state.workspace.name || "") +
+          '" disabled /></div>' +
+          '<div class="field"><label for="f-role">Your role</label><input id="f-role" value="' +
+          ui.escapeHtml(state.workspace.role || "member") +
+          '" disabled /></div>' +
           '<button class="btn btn-primary" data-save-profile>Save changes</button>' +
           "</div>";
-        body.querySelector("[data-save-profile]").addEventListener("click", () => {
-          const name = body.querySelector("#f-name").value.trim() || u.name;
-          store.getState().user.name = name;
-          store.getState().user.email = body.querySelector("#f-email").value.trim();
-          store.getState().user.username = body.querySelector("#f-username").value.trim();
-          store.save();
-          applyPreferenceClasses();
-          renderTopbar();
-          ui.showToast("Profile updated", "success");
+
+        const saveBtn = body.querySelector("[data-save-profile]");
+        saveBtn.addEventListener("click", async () => {
+          const name = body.querySelector("#f-name").value.trim();
+          const email = body.querySelector("#f-email").value.trim();
+          if (!name || !email) {
+            ui.showToast("Name and email are required", "error");
+            return;
+          }
+          saveBtn.disabled = true;
+          try {
+            const data = await window.Lumen.api.auth.updateProfile({ name: name, email: email });
+            store.updateUser(data.user);
+            applyPreferenceClasses();
+            renderTopbar();
+            ui.showToast("Profile updated", "success");
+          } catch (err) {
+            ui.showToast(err.message, "error");
+          } finally {
+            saveBtn.disabled = false;
+          }
         });
       } else if (tab === "appearance") {
         body.innerHTML =
@@ -1041,9 +1140,13 @@
           ui.escapeHtml(state.app.version) +
           "</div></div></div>" +
           '<div class="settings-row"><div class="settings-row-label"><div class="settings-row-title">Tech</div>' +
-          '<div class="settings-row-desc">HTML5, CSS3, vanilla JavaScript \u2014 no backend.</div></div></div>' +
-          '<div class="settings-row"><div class="settings-row-label"><div class="settings-row-title">Credits</div>' +
-          '<div class="settings-row-desc">Designed and built as a frontend-only demo.</div></div></div></div>';
+          '<div class="settings-row-desc">Vanilla HTML, CSS and JavaScript, with an Express + MongoDB API.</div></div></div>' +
+          '<div class="settings-row"><div class="settings-row-label"><div class="settings-row-title">Storage</div>' +
+          '<div class="settings-row-desc">Six collections: users, workspaces, workspaceMembers, pages, blocks, dataTable.</div></div></div>' +
+          '<div class="settings-row"><div class="settings-row-label"><div class="settings-row-title">API</div>' +
+          '<div class="settings-row-desc">' +
+          ui.escapeHtml(window.Lumen.api.baseUrl()) +
+          "</div></div></div></div>";
       }
       // theme options highlight
       if (tab === "appearance") window.Lumen.theme.apply();
@@ -1110,17 +1213,13 @@
     contentEl.appendChild(wrap);
   }
 
-  function createFromTemplate(tpl) {
-    const blocks = tpl.blocks.map((b) => {
-      const copy = Object.assign({}, b);
-      copy.id = store.uid("blk");
-      if (b.table) copy.table = JSON.parse(JSON.stringify(b.table));
-      return copy;
-    });
-    const page = store.createPage({
+  async function createFromTemplate(tpl) {
+    // A template may include a database block; the store seeds page content
+    // and returns once everything is saved.
+    const page = await store.createPage({
       title: tpl.name,
       icon: tpl.icon,
-      blocks: blocks,
+      blocks: tpl.blocks,
     });
     ui.showToast('Page created from "' + tpl.name + '"', "success");
     openPage(page.id);
@@ -1151,7 +1250,7 @@
   /* ---------- New workspace page ---------- */
   function createWorkspacePage() {
     const modal = ui.openModal({
-      title: "New workspace page",
+      title: "New top-level page",
       size: "modal-sm",
       body:
         '<p style="margin-bottom:10px">Name your new top-level page.</p>' +
@@ -1162,11 +1261,11 @@
     });
     const input = modal.querySelector("#nwp-title");
     const ok = modal.querySelector("#nwp-ok");
-    const done = () => {
+    const done = async () => {
       const title = input.value.trim();
-      const p = store.createPage({ title, icon: "\uD83D\uDCDD" });
       ui.closeModal();
-      ui.showToast("Workspace page created", "success");
+      const p = await store.createPage({ title, icon: "\uD83D\uDCDD" });
+      ui.showToast("Page created", "success");
       openPage(p.id);
     };
     ok.addEventListener("click", done);
@@ -1286,14 +1385,37 @@
       wireResultClicks();
     };
 
+    // Searching hits the API, so debounce and guard against a slow response
+    // for a query the user has already replaced.
+    let timer = null;
+    let token = 0;
+
     const onInput = () => {
       const q = input.value.trim();
-      const ql = q.toLowerCase();
+      clearTimeout(timer);
       if (!q) {
+        token += 1;
         renderEmpty();
         return;
       }
-      const results = store.searchPages(q);
+      resultsEl.innerHTML =
+        '<div class="search-group-label">Search results</div>' +
+        '<div class="search-empty">' + ui.icon("search") + "<br/><br/>Searching\u2026</div>";
+      timer = setTimeout(() => runSearch(q), 200);
+    };
+
+    async function runSearch(q) {
+      const mine = ++token;
+      let results = [];
+      try {
+        results = await store.searchPages(q);
+      } catch (err) {
+        if (mine !== token) return;
+        results = [];
+      }
+      if (mine !== token) return;
+
+      const ql = q.toLowerCase();
       if (!results.length) {
         resultsEl.innerHTML =
           '<div class="search-group-label">Search results</div>' +
@@ -1314,7 +1436,7 @@
           })
           .join("");
       wireResultClicks();
-    };
+    }
 
     input.addEventListener("input", onInput);
     input.addEventListener("keydown", (e) => {
@@ -1375,12 +1497,12 @@
       items.forEach((p) => {
         const row = document.createElement("div");
         row.className = "trash-item";
-        const deleted = p.deletedAt ? new Date(p.deletedAt) : null;
+        const archived = p.archivedAt ? new Date(p.archivedAt) : null;
         const when =
-          deleted && !isNaN(deleted.getTime())
-            ? deleted.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+          archived && !isNaN(archived.getTime())
+            ? archived.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
               " at " +
-              deleted.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+              archived.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
             : "";
         const parentPath = p.parentId
           ? store
@@ -1396,7 +1518,7 @@
           '<span class="trash-item-title">' +
           ui.escapeHtml(p.title || "Untitled") +
           "</span>" +
-          '<span class="trash-item-sub">Deleted ' +
+          '<span class="trash-item-sub">Trashed ' +
           ui.escapeHtml(when) +
           (parentPath ? " \u00B7 " + ui.escapeHtml(parentPath) : "") +
           "</span></span>" +
@@ -1479,10 +1601,11 @@
       },
       { id: "go-home", icon: "home", label: "Go to Home", action: () => navigate("dashboard") },
       { id: "go-search", icon: "search", label: "Open Search", action: () => navigate("search") },
-      { id: "go-inbox", icon: "inbox", label: "Open Inbox", action: () => navigate("inbox") },
+      { id: "go-inbox", icon: "inbox", label: "Open Activity", action: () => navigate("inbox") },
       { id: "go-templates", icon: "layout", label: "Browse Templates", action: () => navigate("templates") },
       { id: "go-trash", icon: "trash", label: "Go to Trash", action: () => navigate("trash") },
       { id: "go-settings", icon: "settings", label: "Open Settings", action: () => navigate("settings") },
+      { id: "import", icon: "upload", label: "Import a .md file", action: triggerImport },
       { sep: true },
     ];
     const recents = state.recent.map((id) => store.getPage(id)).filter(Boolean);
@@ -1594,23 +1717,23 @@
   }
 
   /* ============================================================
-     Import (frontend-only: read .txt/.md files)
+     Import: turn a local .txt/.md file into a real page
      ============================================================ */
   const importInput = document.getElementById("import-file");
 
   function wireImport() {
-    importInput.addEventListener("change", () => {
+    importInput.addEventListener("change", async () => {
       const file = importInput.files && importInput.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const text = String(reader.result || "");
         const blocks = text
           .split(/\r?\n/)
           .filter((line) => line.trim().length)
-          .map((line) => ({ id: store.uid("blk"), type: "text", content: line }));
+          .map((line) => ({ type: "text", content: line }));
         const name = file.name.replace(/\.[^/.]+$/, "") || "Imported";
-        const page = store.createPage({ title: name, icon: "\uD83D\uDCC1", blocks });
+        const page = await store.createPage({ title: name, icon: "\uD83D\uDCC1", blocks: blocks });
         ui.showToast('Imported "' + name + '"', "success");
         openPage(page.id);
       };

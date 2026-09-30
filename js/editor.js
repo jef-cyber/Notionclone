@@ -35,7 +35,7 @@
     { type: "divider", glyph: "\u2014", label: "Divider", desc: "Visually divide blocks" },
     { type: "callout", glyph: "\uD83D\uDCA1", label: "Callout", desc: "Make writing stand out" },
     { type: "image", glyph: "\uD83D\uDDBC\uFE0F", label: "Image", desc: "Upload or embed an image" },
-    { type: "table", glyph: "\u229E", label: "Table", desc: "Create a simple table" },
+    { type: "database", glyph: "\u229E", label: "Database", desc: "Table, board, calendar or roadmap" },
     { type: "toggle", glyph: "\u25B8", label: "Toggle", desc: "Collapsible content" },
   ];
 
@@ -103,10 +103,11 @@
       .getPath(page.id)
       .map((p) => p.title || "Untitled")
       .join(" / ");
-    metaEl.innerHTML =
-      ui.escapeHtml(page.updatedAt || "") +
-      '<span class="page-meta-sep">\u00B7</span>' +
-      ui.escapeHtml(path);
+    const edited = ui.relativeTime(page.updatedAt);
+    // .page-meta is a flex row with a gap, so plain text nodes are enough.
+    metaEl.textContent = "";
+    if (edited) metaEl.appendChild(document.createTextNode("Edited " + edited));
+    metaEl.appendChild(document.createTextNode(path));
     if (titleEl && document.activeElement !== titleEl) {
       titleEl.textContent = page.title || "";
       titleEl.dataset.placeholder = String(!page.title);
@@ -167,157 +168,16 @@
       "</button>" +
       "</div>";
 
-    let content;
-    switch (block.type) {
-      case "heading1":
-      case "heading2":
-      case "heading3":
-        content = makeEditable(block, "block-content block-" + block.type);
-        break;
-      case "bulleted":
-      case "numbered": {
-        const row = document.createElement("div");
-        row.className = "block-" + block.type;
-        const marker = document.createElement("span");
-        marker.className = "list-marker";
-        marker.textContent = block.type === "bulleted" ? "\u2022" : numberSeq + ".";
-        const editable = makeEditable(block, "block-content");
-        row.append(marker, editable);
-        content = row;
-        break;
-      }
-      case "todo": {
-        const row = document.createElement("div");
-        row.className = "block-todo";
-        row.dataset.checked = String(!!block.checked);
-        const box = document.createElement("button");
-        box.className = "todo-checkbox";
-        box.dataset.checked = String(!!block.checked);
-        box.setAttribute("aria-label", block.checked ? "Mark as not done" : "Mark as done");
-        box.innerHTML = ui.icon("check");
-        box.addEventListener("click", () => {
-          const next = !block.checked;
-          store.updateBlock(pageId, block.id, { checked: next });
-          row.dataset.checked = String(next);
-          box.dataset.checked = String(next);
-          box.setAttribute("aria-label", next ? "Mark as not done" : "Mark as done");
-        });
-        const editable = makeEditable(block, "block-content");
-        row.append(box, editable);
-        content = row;
-        break;
-      }
-      case "quote":
-        content = makeEditable(block, "block-content block-quote");
-        break;
-      case "code":
-        content = makeEditable(block, "block-content block-code");
-        break;
-      case "callout": {
-        const row = document.createElement("div");
-        row.className = "block-callout";
-        const glyph = document.createElement("span");
-        glyph.className = "callout-icon";
-        glyph.textContent = block.icon || "\uD83D\uDCA1";
-        const editable = makeEditable(block, "block-content");
-        row.append(glyph, editable);
-        content = row;
-        break;
-      }
-      case "divider": {
-        const div = document.createElement("div");
-        div.className = "block-divider";
-        div.textContent = "\u2022 \u2022 \u2022";
-        content = div;
-        break;
-      }
-      case "image": {
-        const img = document.createElement("div");
-        img.className = "block-image";
-        const el = document.createElement("img");
-        el.src = block.content || "";
-        el.alt = "Embedded image";
-        el.addEventListener("error", () => {
-          el.style.display = "none";
-        });
-        const cap = makeEditable(block, "block-image-caption", true);
-        cap.textContent = block.caption || "";
-        img.append(el, cap);
-        content = img;
-        break;
-      }
-      case "table":
-        content = makeTable(block);
-        break;
-      case "toggle": {
-        const row = document.createElement("div");
-        row.className = "block-toggle";
-        row.dataset.open = "true";
-        const caret = document.createElement("button");
-        caret.className = "toggle-caret";
-        caret.setAttribute("aria-label", "Collapse");
-        caret.innerHTML = ui.icon("chevron-right");
-        caret.addEventListener("click", () => {
-          const open = row.dataset.open === "true";
-          row.dataset.open = String(!open);
-          caret.setAttribute("aria-label", open ? "Expand" : "Collapse");
-        });
-        const editable = makeEditable(block, "block-content");
-        row.append(caret, editable);
-        content = row;
-        break;
-      }
-      default:
-        content = makeEditable(block, "block-content block-text", true);
-    }
+    // What goes *inside* the block is the renderer's job; the wrapper, the drag
+    // handle and the type menu stay here.
+    const content = window.Lumen.blockRenderer.render(block, {
+      pageId: pageId,
+      numberSeq: numberSeq,
+      onImageRequest: promptImage,
+    });
 
     wrap.appendChild(content);
     attachBlockEvents(wrap, block);
-    return wrap;
-  }
-
-  function makeEditable(block, className, placeholder) {
-    const el = document.createElement("div");
-    el.className = className;
-    el.contentEditable = "true";
-    el.textContent = block.content || "";
-    el.setAttribute("role", "textbox");
-    el.setAttribute("aria-multiline", "true");
-    if (placeholder) el.dataset.placeholder = String(!block.content);
-    el.addEventListener("input", () => {
-      const val = el.innerText.replace(/\u200B/g, "");
-      store.updateBlock(pageId, block.id, { content: val });
-      if (placeholder) el.dataset.placeholder = String(!val);
-    });
-    return el;
-  }
-
-  function makeTable(block) {
-    const t = block.table || { cols: 3, rows: [["", "", ""]] };
-    const wrap = document.createElement("div");
-    wrap.className = "block-table";
-    const table = document.createElement("table");
-    const tbody = document.createElement("tbody");
-    t.rows.forEach((row, r) => {
-      const tr = document.createElement("tr");
-      row.forEach((cell, c) => {
-        const isHeader = r === 0;
-        const cellEl = document.createElement(isHeader ? "th" : "td");
-        cellEl.contentEditable = "true";
-        cellEl.textContent = cell || "";
-        cellEl.addEventListener("input", () => {
-          const tb = store.getPage(pageId).blocks.find((b) => b.id === block.id);
-          if (tb && tb.table && tb.table.rows[r] && tb.table.rows[r][c] !== undefined) {
-            tb.table.rows[r][c] = cellEl.innerText;
-            store.save();
-          }
-        });
-        tr.appendChild(cellEl);
-      });
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-    wrap.appendChild(table);
     return wrap;
   }
 

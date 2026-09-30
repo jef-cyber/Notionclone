@@ -22,7 +22,6 @@
   /* ---------- render nav ---------- */
   function renderNav() {
     const state = store.getState();
-    const unread = state.notifications.filter((n) => !n.read).length;
     navEl.innerHTML =
       '<button class="sidebar-nav-item" data-nav="home">' +
       ui.icon("home") +
@@ -32,9 +31,7 @@
       '<span class="sidebar-nav-item-label">Search</span></button>' +
       '<button class="sidebar-nav-item" data-nav="inbox">' +
       ui.icon("inbox") +
-      '<span class="sidebar-nav-item-label">Inbox</span>' +
-      (unread ? '<span class="inbox-badge">' + unread + "</span>" : "") +
-      "</button>" +
+      '<span class="sidebar-nav-item-label">Activity</span></button>' +
       '<button class="sidebar-nav-item" data-nav="trash">' +
       ui.icon("trash") +
       '<span class="sidebar-nav-item-label">Trash</span></button>' +
@@ -77,7 +74,7 @@
 
     children.forEach((page) => {
       const hasChildren = store.getChildren(page.id).length > 0;
-      const isOpen = !!page.expanded;
+      const isOpen = store.isExpanded(page.id);
       const isActive = state.view === "page" && state.currentPageId === page.id;
 
       const wrap = document.createElement("div");
@@ -156,7 +153,8 @@
     if (caret) {
       caret.addEventListener("click", (e) => {
         e.stopPropagation();
-        store.updatePage(id, { expanded: !page.expanded });
+        store.setExpanded(id, !store.isExpanded(id));
+        renderAll();
       });
     }
 
@@ -168,9 +166,9 @@
     });
 
     // add subpage
-    wrap.querySelector("[data-add]").addEventListener("click", (e) => {
+    wrap.querySelector("[data-add]").addEventListener("click", async (e) => {
       e.stopPropagation();
-      const p = store.createPage({ parentId: id });
+      const p = await store.createPage({ parentId: id });
       ui.showToast("Page created", "success");
       openPage(p.id);
     });
@@ -193,9 +191,24 @@
     const fav = page.favorite;
     const items = [
       { label: "Open", icon: "external", action: () => openPage(id) },
-      { label: "Add to Favorites", icon: "star", action: () => { store.toggleFavorite(id); ui.showToast("Added to favorites"); } },
+      {
+        label: fav ? "Remove from Favorites" : "Add to Favorites",
+        icon: "star",
+        action: () => {
+          const now = store.toggleFavorite(id);
+          ui.showToast(now ? "Added to favorites" : "Removed from favorites");
+        },
+      },
       { label: "Rename", icon: "pencil", action: () => startRenameOnMenu(id) },
-      { label: "Duplicate", icon: "copy", action: () => { const c = store.duplicatePage(id); ui.showToast("Page duplicated", "success"); openPage(c.id); } },
+      {
+        label: "Duplicate",
+        icon: "copy",
+        action: async () => {
+          const c = await store.duplicatePage(id);
+          ui.showToast("Page duplicated", "success");
+          openPage(c.id);
+        },
+      },
       {
         label: "Move to",
         icon: "folder-plus",
@@ -231,9 +244,6 @@
         },
       },
     ];
-    if (fav) {
-      items[1] = { label: "Remove from Favorites", icon: "star", action: () => { store.toggleFavorite(id); ui.showToast("Removed from favorites"); } };
-    }
     ui.openMenu({ x, y, items });
   }
 
@@ -241,7 +251,7 @@
     const page = store.getPage(id);
     if (!page) return [];
     const state = store.getState();
-    const blocked = new Set([id, ...store.getDescendantIds(id)]);
+    const blocked = new Set([id].concat(store.getDescendantIds(id)));
     const items = [
       {
         label: "Top level",
@@ -254,7 +264,7 @@
       },
     ];
     state.pages
-      .filter((p) => !blocked.has(p.id))
+      .filter((p) => !blocked.has(p.id) && !p.isArchived)
       .forEach((p) => {
         items.push({
           label: p.title || "Untitled",
@@ -398,6 +408,12 @@
     if (moved !== false) ui.showToast("Page moved", "success");
   }
 
+  async function createTopLevelPage() {
+    const p = await store.createPage({});
+    ui.showToast("Page created", "success");
+    openPage(p.id);
+  }
+
   /* ---------- favorites quick list ---------- */
   function renderFavorites() {
     const favs = store.getFavorites();
@@ -436,25 +452,81 @@
   function openWorkspaceMenu(btn) {
     const r = btn.getBoundingClientRect();
     const state = store.getState();
+
+    const switcher = state.workspaces
+      .filter((w) => w._id !== state.currentWorkspaceId)
+      .map((w) => ({
+        label: w.name || "Untitled workspace",
+        icon: w.icon || "\u25C8",
+        action: () => {
+          store.switchWorkspace(w._id);
+          ui.showToast("Switched to " + (w.name || "workspace"), "success");
+        },
+      }));
+
+    const items = [];
+    if (switcher.length) {
+      items.push(
+        { label: "Your workspaces", icon: "layers", caret: true, items: switcher },
+        { sep: true }
+      );
+    }
+    items.push(
+      { label: "Rename workspace", icon: "pencil", action: renameWorkspace },
+      { label: "Settings", icon: "settings", action: () => navigate("settings") },
+      {
+        label: "Theme",
+        icon: state.settings.theme === "dark" ? "moon" : "sun",
+        caret: true,
+        items: [
+          { label: "Light", icon: "sun", checked: state.settings.theme === "light", action: () => window.Lumen.theme.setTheme("light") },
+          { label: "Dark", icon: "moon", checked: state.settings.theme === "dark", action: () => window.Lumen.theme.setTheme("dark") },
+          { label: "System", icon: "monitor", checked: state.settings.theme === "system", action: () => window.Lumen.theme.setTheme("system") },
+        ],
+      },
+      { sep: true },
+      { label: "Log out", icon: "logout", danger: true, action: () => window.Lumen.app.logout() }
+    );
+
     ui.openMenu({
       x: r.left,
       y: r.bottom + 4,
-      header: { name: state.workspace.name, sub: "Personal workspace" },
-      items: [
-        { label: "Settings", icon: "settings", action: () => navigate("settings") },
-        {
-          label: "Theme",
-          icon: state.settings.theme === "dark" ? "moon" : "sun",
-          caret: true,
-          items: [
-            { label: "Light", icon: "sun", checked: state.settings.theme === "light", action: () => window.Lumen.theme.setTheme("light") },
-            { label: "Dark", icon: "moon", checked: state.settings.theme === "dark", action: () => window.Lumen.theme.setTheme("dark") },
-            { label: "System", icon: "monitor", checked: state.settings.theme === "system", action: () => window.Lumen.theme.setTheme("system") },
-          ],
-        },
-        { sep: true },
-        { label: "Log out", icon: "logout", danger: true, action: () => window.Lumen.app.logout() },
-      ],
+      header: { name: state.workspace.name, sub: roleLabel(state.workspace.role) },
+      items: items,
+    });
+  }
+
+  function roleLabel(role) {
+    return role ? "You are the " + role : "";
+  }
+
+  function renameWorkspace() {
+    const state = store.getState();
+    const modal = ui.openModal({
+      title: "Rename workspace",
+      size: "modal-sm",
+      body:
+        '<div class="field" style="margin:0"><label for="ws-name">Workspace name</label>' +
+        '<input id="ws-name" type="text" value="' +
+        ui.escapeHtml(state.workspace.name || "") +
+        '" /></div>',
+      footer:
+        '<button class="btn btn-secondary" data-modal-close>Cancel</button>' +
+        '<button class="btn btn-primary" data-ws-save>Save</button>',
+    });
+    const input = modal.querySelector("#ws-name");
+    const save = () => {
+      const name = input.value.trim();
+      if (name && name !== state.workspace.name) store.renameWorkspace(name);
+      ui.closeModal();
+    };
+    modal.querySelector("[data-ws-save]").addEventListener("click", save);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") save();
+    });
+    requestAnimationFrame(() => {
+      input.focus();
+      input.select();
     });
   }
 
@@ -465,10 +537,10 @@
     // workspace button
     workspaceBtn.innerHTML =
       '<span class="sidebar-ws-icon">' +
-      ui.escapeHtml(state.workspace.icon) +
+      ui.escapeHtml(state.workspace.icon || "\u25C8") +
       "</span>" +
       '<span class="sidebar-ws-name">' +
-      ui.escapeHtml(state.workspace.name) +
+      ui.escapeHtml(state.workspace.name || "Workspace") +
       "</span>" +
       '<span class="sidebar-ws-caret">' +
       ui.icon("chevron-down") +
@@ -477,8 +549,8 @@
     // profile row
     const profileName = sidebarEl.querySelector("[data-profile-name]");
     const profileAvatar = sidebarEl.querySelector("[data-profile-avatar]");
-    if (profileName) profileName.textContent = state.user.name;
-    if (profileAvatar) profileAvatar.textContent = ui.initials(state.user.name);
+    if (profileName) profileName.textContent = state.user.name || "";
+    if (profileAvatar) profileAvatar.textContent = ui.initials(state.user.name || "");
 
     renderNav();
     renderFavorites();
@@ -541,16 +613,8 @@
     });
 
     // top-level add
-    sidebarEl.querySelector("[data-add-top]").addEventListener("click", () => {
-      const p = store.createPage({});
-      ui.showToast("Page created", "success");
-      openPage(p.id);
-    });
-    addFooterBtn.addEventListener("click", () => {
-      const p = store.createPage({});
-      ui.showToast("Page created", "success");
-      openPage(p.id);
-    });
+    sidebarEl.querySelector("[data-add-top]").addEventListener("click", createTopLevelPage);
+    addFooterBtn.addEventListener("click", createTopLevelPage);
 
     // profile row → opens the app profile menu
     sidebarEl.querySelector("[data-profile]").addEventListener("click", (e) => {
@@ -577,8 +641,9 @@
       if (
         reason === "pages" ||
         reason === "favorites" ||
-        reason === "notifications" ||
+        reason === "rename" ||
         reason === "trash" ||
+        reason === "workspace" ||
         reason === "user" ||
         reason === "change"
       ) {

@@ -1,16 +1,20 @@
 /* ============================================================
-   Lumen — mock auth (Phase 1, frontend only).
-   Validation + session helpers backed by the store's local state.
-   There is no real backend: any valid-looking credentials work.
+   Lumen — authentication.
+
+   Real credentials now: every call goes to the Express API, which owns the
+   users collection, hashes passwords with bcrypt and issues a JWT. Client
+   side validation is only here to give instant feedback; the server is
+   always the authority and its per-field errors are merged into the form.
    ============================================================ */
 
 (function () {
   "use strict";
 
-  const { store } = window.Lumen;
+  const api = window.Lumen.api;
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const PASSWORD_MIN = 8;
+  const TOKEN_KEY = "lumen.token.v1";
 
   function validateLogin(email, password) {
     const errors = {};
@@ -39,46 +43,86 @@
     return errors;
   }
 
-  /** Mock login: succeeds for any valid email + password. */
-  function login(email, password) {
+  /**
+   * The server reports field problems as `{ error: { details: { email: "..." } } }`.
+   * Spread them into the shape the auth forms expect, and fall back to a
+   * single message when the failure is not field-specific.
+   */
+  function toResult(payload) {
+    if (payload && payload.ok) return { ok: true };
+
+    const errors = {};
+    const details = payload && payload.details;
+    if (details && typeof details === "object" && !Array.isArray(details)) {
+      Object.keys(details).forEach((key) => {
+        if (typeof details[key] === "string") errors[key] = details[key];
+      });
+    }
+    if (!Object.keys(errors).length) {
+      const message = (payload && payload.message) || "Something went wrong. Please try again.";
+      errors.form = message;
+    }
+    return { ok: false, errors };
+  }
+
+  /** Log in. @returns {Promise<{ok: boolean, errors?: object}>} */
+  async function login(email, password) {
     const errors = validateLogin(email, password);
     if (Object.keys(errors).length) return { ok: false, errors };
-    store.setLoggedIn(true);
-    return { ok: true };
+
+    try {
+      const data = await api.auth.login({
+        email: String(email).trim().toLowerCase(),
+        password: password,
+      });
+      api.setToken(data.token);
+      return { ok: true, user: data.user, workspaces: data.workspaces };
+    } catch (err) {
+      return toResult({ message: err.message, details: err.details });
+    }
   }
 
-  /** Mock register: validates, then creates/updates the local user. */
-  function register(name, email, password, confirm) {
+  /**
+   * Create an account. The server also creates the caller's first workspace,
+   * so the app is usable the moment registration succeeds.
+   */
+  async function register(name, email, password, confirm) {
     const errors = validateRegister(name, email, password, confirm);
     if (Object.keys(errors).length) return { ok: false, errors };
-    const cleanEmail = String(email || "").trim().toLowerCase();
-    store.updateUser({
-      name: String(name || "").trim(),
-      email: cleanEmail,
-      username: cleanEmail.split("@")[0] || "user",
-    });
-    store.setLoggedIn(true);
-    return { ok: true };
-  }
 
-  /** Mock "Continue with Google" — signs in as a demo user. */
-  function googleLogin() {
-    const demo = {
-      name: "Alex Rivera",
-      email: "alex@lumen.space",
-      username: "alexrivera",
-    };
-    store.updateUser(demo);
-    store.setLoggedIn(true);
-    return { ok: true };
+    try {
+      const data = await api.auth.register({
+        name: String(name).trim(),
+        email: String(email).trim().toLowerCase(),
+        password: password,
+        confirmPassword: confirm,
+      });
+      api.setToken(data.token);
+      return { ok: true, user: data.user, workspaces: data.workspaces };
+    } catch (err) {
+      // The server's confirmPassword key is called `confirmPassword` locally.
+      const details = err.details || {};
+      if (typeof details.confirmPassword === "string" && !details.confirm) {
+        details.confirm = details.confirmPassword;
+      }
+      return toResult({ message: err.message, details: details });
+    }
   }
 
   function isLoggedIn() {
-    return !!store.getState().loggedIn;
+    return !!api.getToken();
   }
 
   function logout() {
-    store.setLoggedIn(false);
+    // The token is stateless, so this is a best-effort call; the local token
+    // is cleared either way.
+    const token = api.getToken();
+    api.setToken(null);
+    if (!token) return Promise.resolve();
+    return api.auth
+      .logout()
+      .catch(() => null)
+      .then(() => null);
   }
 
   window.Lumen = window.Lumen || {};
@@ -87,10 +131,10 @@
     validateRegister,
     login,
     register,
-    googleLogin,
     logout,
     isLoggedIn,
     EMAIL_RE,
     PASSWORD_MIN,
+    TOKEN_KEY,
   };
 })();
