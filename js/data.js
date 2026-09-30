@@ -47,7 +47,7 @@ window.LumenData = {
           id: "gs-2",
           type: "paragraph",
           content:
-            "Lumen is a minimal, frontend-only workspace inspired by Notion. Everything you see is built with HTML, CSS, and vanilla JavaScript, and your work is saved locally in your browser.",
+            "Notion is a minimal, frontend-only workspace inspired by Notion. Everything you see is built with HTML, CSS, and vanilla JavaScript, and your work is saved locally in your browser.",
         },
         {
           id: "gs-3",
