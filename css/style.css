@@ -34,6 +34,17 @@
   --overlay: rgba(15, 15, 15, 0.4);
   --scrollbar-thumb: rgba(120, 119, 116, 0.4);
   --color-scheme: light;
+
+  /* Status palette — shared by board columns, cards, calendar chips and
+     roadmap bars so the same status is always the same colour. */
+  --status-blue: #2383e2;
+  --status-green: #448361;
+  --status-yellow: #cb912f;
+  --status-red: #d44c47;
+  --status-purple: #8b5cf6;
+  --status-pink: #d6409f;
+  --status-orange: #d9730d;
+  --status-gray: #787774;
 }
 
 [data-theme="dark"] {
@@ -65,6 +76,16 @@
   --overlay: rgba(0, 0, 0, 0.55);
   --scrollbar-thumb: rgba(120, 119, 116, 0.5);
   --color-scheme: dark;
+
+  /* Status palette (dark). */
+  --status-blue: #4d9cf0;
+  --status-green: #6fb18a;
+  --status-yellow: #d9a441;
+  --status-red: #eb5757;
+  --status-purple: #a78bfa;
+  --status-pink: #e06cbc;
+  --status-orange: #e08a3d;
+  --status-gray: #9b9b98;
 }
 
 /* ---------- Reset & base ---------- */

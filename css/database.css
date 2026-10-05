@@ -260,6 +260,26 @@
   outline-offset: -2px;
 }
 
+/* Coloured status dot before the column title. */
+.db-board-head .db-board-title::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: var(--status-gray);
+}
+.db-board-col[data-color="blue"] .db-board-title::before { background: var(--status-blue); }
+.db-board-col[data-color="green"] .db-board-title::before { background: var(--status-green); }
+.db-board-col[data-color="yellow"] .db-board-title::before { background: var(--status-yellow); }
+.db-board-col[data-color="red"] .db-board-title::before { background: var(--status-red); }
+.db-board-col[data-color="purple"] .db-board-title::before { background: var(--status-purple); }
+.db-board-col[data-color="pink"] .db-board-title::before { background: var(--status-pink); }
+.db-board-col[data-color="orange"] .db-board-title::before { background: var(--status-orange); }
+.db-board-col[data-color="gray"] .db-board-title::before { background: var(--status-gray); }
+
 .db-board-head {
   display: flex;
   align-items: center;
@@ -299,6 +319,18 @@
 .db-card.is-dragging {
   opacity: 0.45;
 }
+/* Left accent in the card's status colour. */
+.db-card[data-color] {
+  border-left: 3px solid var(--border-strong);
+}
+.db-card[data-color="blue"] { border-left-color: var(--status-blue); }
+.db-card[data-color="green"] { border-left-color: var(--status-green); }
+.db-card[data-color="yellow"] { border-left-color: var(--status-yellow); }
+.db-card[data-color="red"] { border-left-color: var(--status-red); }
+.db-card[data-color="purple"] { border-left-color: var(--status-purple); }
+.db-card[data-color="pink"] { border-left-color: var(--status-pink); }
+.db-card[data-color="orange"] { border-left-color: var(--status-orange); }
+.db-card[data-color="gray"] { border-left-color: var(--status-gray); }
 .db-card .db-icon-btn {
   position: absolute;
   top: 4px;
@@ -421,6 +453,15 @@
 .db-cal-chip:hover {
   background: var(--bg-active);
 }
+/* Chips follow their status colour, matching board columns and roadmap bars. */
+.db-cal-chip[data-color="blue"] { border-left-color: var(--status-blue); }
+.db-cal-chip[data-color="green"] { border-left-color: var(--status-green); }
+.db-cal-chip[data-color="yellow"] { border-left-color: var(--status-yellow); }
+.db-cal-chip[data-color="red"] { border-left-color: var(--status-red); }
+.db-cal-chip[data-color="purple"] { border-left-color: var(--status-purple); }
+.db-cal-chip[data-color="pink"] { border-left-color: var(--status-pink); }
+.db-cal-chip[data-color="orange"] { border-left-color: var(--status-orange); }
+.db-cal-chip[data-color="gray"] { border-left-color: var(--status-gray); }
 
 .db-cal .btn {
   margin: 8px 10px;
@@ -524,6 +565,15 @@
 .db-roadmap-bar:hover {
   background: var(--bg-active);
 }
+/* Bars take their status colour (soft fill + stronger left edge). */
+.db-roadmap-bar[data-color="blue"] { background: color-mix(in srgb, var(--status-blue) 18%, transparent); border-left: 3px solid var(--status-blue); }
+.db-roadmap-bar[data-color="green"] { background: color-mix(in srgb, var(--status-green) 18%, transparent); border-left: 3px solid var(--status-green); }
+.db-roadmap-bar[data-color="yellow"] { background: color-mix(in srgb, var(--status-yellow) 18%, transparent); border-left: 3px solid var(--status-yellow); }
+.db-roadmap-bar[data-color="red"] { background: color-mix(in srgb, var(--status-red) 18%, transparent); border-left: 3px solid var(--status-red); }
+.db-roadmap-bar[data-color="purple"] { background: color-mix(in srgb, var(--status-purple) 18%, transparent); border-left: 3px solid var(--status-purple); }
+.db-roadmap-bar[data-color="pink"] { background: color-mix(in srgb, var(--status-pink) 18%, transparent); border-left: 3px solid var(--status-pink); }
+.db-roadmap-bar[data-color="orange"] { background: color-mix(in srgb, var(--status-orange) 18%, transparent); border-left: 3px solid var(--status-orange); }
+.db-roadmap-bar[data-color="gray"] { background: color-mix(in srgb, var(--status-gray) 18%, transparent); border-left: 3px solid var(--status-gray); }
 
 @media (max-width: 720px) {
   .db-tabs {

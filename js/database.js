@@ -101,6 +101,48 @@
   }
 
   /* ============================================================
+     Status colours
+
+     A select value is mapped to one of a fixed set of palette tokens so the
+     same status ("Done", "In Progress", ...) always gets the same colour on
+     every view, board column, card, chip and roadmap bar. Unknown values fall
+     back to a stable hash, so colours never change between renders.
+     ============================================================ */
+  const STATUS_COLORS = ["", "blue", "green", "yellow", "red", "purple", "pink", "orange", "gray"];
+
+  const STATUS_KEYWORDS = [
+    { re: /done|complete|shipped|finished|closed|resolved|success/i, color: "green" },
+    { re: /in.?progress|doing|active|started|ongoing|current|review/i, color: "yellow" },
+    { re: /todo|to.?do|backlog|not.?started|pending|open|new|plan/i, color: "gray" },
+    { re: /block|stuck|hold|paused|fail|error|cancel|reject|overdue|urgent|critical/i, color: "red" },
+    { re: /high|important/i, color: "orange" },
+    { re: /medium|normal/i, color: "blue" },
+    { re: /low|minor/i, color: "purple" },
+  ];
+
+  function statusColor(value) {
+    const v = cellText(value).trim();
+    if (!v) return "";
+    for (let i = 0; i < STATUS_KEYWORDS.length; i += 1) {
+      if (STATUS_KEYWORDS[i].re.test(v)) return STATUS_KEYWORDS[i].color;
+    }
+    let hash = 0;
+    for (let i = 0; i < v.length; i += 1) hash = (hash * 31 + v.charCodeAt(i)) >>> 0;
+    return STATUS_COLORS[(hash % (STATUS_COLORS.length - 1)) + 1];
+  }
+
+  /** The select column a board/roadmap groups by, if there is one. */
+  function statusColumnOf(dataTable) {
+    const props = dataTable.properties || {};
+    return columns(dataTable).find((c) => (props[c] || {}).type === "select") || null;
+  }
+
+  function setStatusColor(el, value) {
+    if (!value) return;
+    el.dataset.color = value;
+  }
+
+  /* ============================================================
      Mount
      ============================================================ */
   /**
@@ -651,6 +693,7 @@
       const column = document.createElement("div");
       column.className = "db-board-col";
       column.dataset.group = option;
+      setStatusColor(column, statusColor(option));
 
       const rows = (state.dataTable.rows || []).filter(
         (r) => cellText(r[group]) === option
@@ -670,6 +713,7 @@
         card.className = "db-card";
         card.draggable = true;
         card.dataset.id = row.id;
+        setStatusColor(card, statusColor(option));
         card.appendChild(makeCell(state, rerender, row, primary));
         card.appendChild(miniMeta(state, row, group));
         card.appendChild(deleteButton(state, row, rerender));
@@ -855,10 +899,7 @@
           chip.title = "Click to edit \u00b7 drag to reschedule";
           chip.draggable = true;
           chip.dataset.id = row.id;
-          const group = cellText(row[groupCol]);
-          if (group) {
-            chip.dataset.group = group.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-          }
+          setStatusColor(chip, statusColor(row[groupCol]));
           chip.addEventListener("dragstart", (e) => {
             e.dataTransfer.effectAllowed = "move";
             e.dataTransfer.setData("text/plain", row.id);
@@ -986,6 +1027,7 @@
       null;
 
     const groupCol = groupColumn(state.dataTable);
+    const statusCol = statusColumnOf(state.dataTable);
     const primary = titleColumn(state.dataTable);
     const options = optionsFor(state.dataTable, groupCol);
 
@@ -1059,7 +1101,9 @@
 
       const track = document.createElement("div");
       track.className = "db-roadmap-track";
-      months.forEach(() => {
+      // One slot per month. (`months` above is a DOM element, not the array —
+      // iterate `buckets` here.)
+      buckets.forEach(() => {
         const slot = document.createElement("div");
         slot.className = "db-roadmap-slot";
         track.appendChild(slot);
@@ -1076,6 +1120,7 @@
         bar.className = "db-roadmap-bar";
         bar.draggable = true;
         bar.dataset.id = r.id;
+        setStatusColor(bar, statusColor(r[statusCol]));
         bar.style.gridColumn = Math.max(1, offset + 1) + " / span " + span;
         bar.textContent = cellText(r[primary]) || "Untitled";
         bar.title =
