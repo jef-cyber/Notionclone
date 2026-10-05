@@ -1074,7 +1074,10 @@
   }
 
   function getDataTable(id) {
-    return api.dataTables.get(id);
+    // Unwrap the envelope like every other data-table helper. Returning the raw
+    // { dataTable } payload here left callers reading `._id` off the envelope,
+    // which produced /data-tables/undefined and wiped property saves.
+    return api.dataTables.get(id).then((data) => data.dataTable);
   }
 
   function updateDataTable(id, patch) {

@@ -148,6 +148,7 @@
         // Rebuild the block from the latest server copy. Used after the editor
         // panel changes properties/name or when the table is deleted.
         const remount = () => {
+          if (!block.dataTableId) return Promise.resolve();
           invalidate(block.dataTableId);
           return cached(block.dataTableId)
             .then((fresh) => {
