@@ -168,9 +168,15 @@
     // add subpage
     wrap.querySelector("[data-add]").addEventListener("click", async (e) => {
       e.stopPropagation();
-      const p = await store.createPage({ parentId: id });
-      ui.showToast("Page created", "success");
-      openPage(p.id);
+      e.currentTarget.disabled = true;
+      try {
+        const p = await store.createPage({ parentId: id });
+        ui.showToast("Page created", "success");
+        openPage(p.id);
+      } catch (err) {
+        ui.showToast(err.message || "Could not create the page", "error");
+        e.currentTarget.disabled = false;
+      }
     });
 
     // context menu
@@ -409,9 +415,13 @@
   }
 
   async function createTopLevelPage() {
-    const p = await store.createPage({});
-    ui.showToast("Page created", "success");
-    openPage(p.id);
+    try {
+      const p = await store.createPage({});
+      ui.showToast("Page created", "success");
+      openPage(p.id);
+    } catch (err) {
+      ui.showToast(err.message || "Could not create the page", "error");
+    }
   }
 
   /* ---------- favorites quick list ---------- */
@@ -472,7 +482,9 @@
       );
     }
     items.push(
+      { label: "New workspace", icon: "plus", action: createWorkspaceFlow },
       { label: "Rename workspace", icon: "pencil", action: renameWorkspace },
+      { label: "Members", icon: "user", action: openMembers },
       { label: "Settings", icon: "settings", action: () => navigate("settings") },
       {
         label: "Theme",
@@ -488,6 +500,15 @@
       { label: "Log out", icon: "logout", danger: true, action: () => window.Lumen.app.logout() }
     );
 
+    if (state.workspace.role === "owner" && (state.workspaces || []).length > 1) {
+      items.push({
+        label: "Delete workspace",
+        icon: "trash",
+        danger: true,
+        action: deleteWorkspaceFlow,
+      });
+    }
+
     ui.openMenu({
       x: r.left,
       y: r.bottom + 4,
@@ -498,6 +519,231 @@
 
   function roleLabel(role) {
     return role ? "You are the " + role : "";
+  }
+
+  /* ---------- create / delete workspace ---------- */
+  function promptText(opts) {
+    return new Promise((resolve) => {
+      const modal = ui.openModal({
+        title: opts.title,
+        size: "modal-sm",
+        body:
+          '<div class="field" style="margin:0"><label for="prompt-input">' +
+          ui.escapeHtml(opts.label) +
+          '</label><input id="prompt-input" type="text" maxlength="120" value="' +
+          ui.escapeHtml(opts.value || "") +
+          '" placeholder="' +
+          ui.escapeHtml(opts.placeholder || "") +
+          '" /></div>',
+        footer:
+          '<button class="btn btn-secondary" data-prompt-cancel>Cancel</button>' +
+          '<button class="btn ' +
+          (opts.danger ? "btn-danger" : "btn-primary") +
+          '" data-prompt-ok>' +
+          ui.escapeHtml(opts.confirmLabel || "Save") +
+          "</button>",
+        onClose: () => resolve(null),
+      });
+      const input = modal.querySelector("#prompt-input");
+      const ok = modal.querySelector("[data-prompt-ok]");
+      const finish = (value) => {
+        ui.closeModal();
+        resolve(value);
+      };
+      ok.addEventListener("click", () => {
+        const value = input.value.trim();
+        if (!value) {
+          input.focus();
+          return;
+        }
+        finish(value);
+      });
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") ok.click();
+      });
+      modal.querySelector("[data-prompt-cancel]").addEventListener("click", () => finish(null));
+      requestAnimationFrame(() => {
+        input.focus();
+        input.select();
+      });
+    });
+  }
+
+  async function createWorkspaceFlow() {
+    const name = await promptText({
+      title: "New workspace",
+      label: "Workspace name",
+      placeholder: "My Workspace",
+      confirmLabel: "Create",
+    });
+    if (!name) return;
+    try {
+      const ws = await store.createWorkspace(name);
+      ui.showToast("Created \u201C" + ws.name + "\u201D", "success");
+    } catch (err) {
+      ui.showToast(err.message, "error");
+    }
+  }
+
+  function deleteWorkspaceFlow() {
+    const state = store.getState();
+    ui.confirmDialog({
+      title: "Delete workspace?",
+      message:
+        "This permanently deletes <span class=\"confirm-name\">" +
+        ui.escapeHtml(state.workspace.name || "this workspace") +
+        "</span>, including every page, block, and database inside it. This cannot be undone.",
+      confirmLabel: "Delete workspace",
+      danger: true,
+    }).then(async (ok) => {
+      if (!ok) return;
+      try {
+        await store.deleteWorkspace();
+        ui.showToast("Workspace deleted", "info");
+        // If that was the last workspace the session is now empty; return to
+        // the landing page rather than showing an empty shell.
+        if (!store.getState().currentWorkspaceId) {
+          window.Lumen.app.logout();
+        }
+      } catch (err) {
+        ui.showToast(err.message, "error");
+      }
+    });
+  }
+
+  /* ---------- members ---------- */
+  const ROLE_LABELS = { owner: "Owner", admin: "Admin", member: "Member", viewer: "Viewer" };
+
+  function openMembers() {
+    const state = store.getState();
+    const canManage = state.workspace.role === "owner" || state.workspace.role === "admin";
+
+    const render = () => {
+      const members = store.getState().members || [];
+      body.innerHTML =
+        '<div class="members-list">' +
+        members
+          .map((m) => {
+            const isOwner = m.role === "owner";
+            return (
+              '<div class="member-row"><span class="avatar">' +
+              ui.escapeHtml(ui.initials(m.name)) +
+              '</span><span class="member-body"><span class="member-name">' +
+              ui.escapeHtml(m.name || "Unknown") +
+              '</span><span class="member-email">' +
+              ui.escapeHtml(m.email || "") +
+              "</span></span>" +
+              (canManage && !isOwner
+                ? '<select class="select member-role" data-member="' +
+                  m.id +
+                  '">' +
+                  ["admin", "member", "viewer"]
+                    .map(
+                      (r) =>
+                        '<option value="' +
+                        r +
+                        '"' +
+                        (m.role === r ? " selected" : "") +
+                        ">" +
+                        ROLE_LABELS[r] +
+                        "</option>"
+                    )
+                    .join("") +
+                  "</select>" +
+                  '<button class="member-remove" data-remove="' +
+                  m.id +
+                  '" aria-label="Remove member">' +
+                  ui.icon("close") +
+                  "</button>"
+                : '<span class="member-role-static">' +
+                  ui.escapeHtml(ROLE_LABELS[m.role] || m.role) +
+                  "</span>") +
+              "</div>"
+            );
+          })
+          .join("") +
+        "</div>";
+
+      if (canManage) {
+        body.insertAdjacentHTML(
+          "beforeend",
+          '<div class="member-invite"><input id="invite-email" type="email" placeholder="teammate@example.com" />' +
+            '<select id="invite-role" class="select"><option value="member">Member</option>' +
+            '<option value="admin">Admin</option><option value="viewer">Viewer</option></select>' +
+            '<button class="btn btn-primary" id="invite-btn">Invite</button></div>'
+        );
+        body.querySelector("#invite-btn").addEventListener("click", async () => {
+          const email = body.querySelector("#invite-email").value.trim();
+          const role = body.querySelector("#invite-role").value;
+          if (!email) {
+            ui.showToast("Enter an email address", "error");
+            return;
+          }
+          const btn = body.querySelector("#invite-btn");
+          btn.disabled = true;
+          btn.textContent = "Inviting\u2026";
+          try {
+            await store.addMember(email, role);
+            ui.showToast("Invited " + email, "success");
+            render();
+          } catch (err) {
+            ui.showToast(err.message, "error");
+            btn.disabled = false;
+            btn.textContent = "Invite";
+          }
+        });
+      }
+
+      body.querySelectorAll(".member-role").forEach((sel) => {
+        sel.addEventListener("change", async () => {
+          sel.disabled = true;
+          try {
+            await store.updateMemberRole(sel.dataset.member, sel.value);
+            ui.showToast("Role updated", "success");
+          } catch (err) {
+            ui.showToast(err.message, "error");
+          } finally {
+            render();
+          }
+        });
+      });
+      body.querySelectorAll("[data-remove]").forEach((b) => {
+        b.addEventListener("click", () => {
+          const m = (store.getState().members || []).find((x) => x.id === b.dataset.remove);
+          ui.confirmDialog({
+            title: "Remove member?",
+            message:
+              "Remove <span class=\"confirm-name\">" +
+              ui.escapeHtml((m && m.name) || "this person") +
+              "</span> from this workspace?",
+            confirmLabel: "Remove",
+            danger: true,
+          }).then(async (ok) => {
+            if (!ok) return;
+            try {
+              await store.removeMember(b.dataset.remove);
+              ui.showToast("Member removed", "info");
+            } catch (err) {
+              ui.showToast(err.message, "error");
+            } finally {
+              render();
+            }
+          });
+        });
+      });
+    };
+
+    const modal = ui.openModal({
+      title: "Members",
+      body: '<div class="members-loading">Loading\u2026</div>',
+      footer: '<button class="btn btn-secondary" data-modal-close>Done</button>',
+    });
+    const body = modal.querySelector(".modal-body");
+    render();
+    store
+      .reloadMembers()
+      .catch((err) => ui.showToast(err.message, "error"))
+      .finally(render);
   }
 
   function renameWorkspace() {
@@ -640,8 +886,10 @@
     store.onChange((reason) => {
       if (
         reason === "pages" ||
+        reason === "nav" ||
         reason === "favorites" ||
         reason === "rename" ||
+        reason === "icon" ||
         reason === "trash" ||
         reason === "workspace" ||
         reason === "user" ||

@@ -7,6 +7,9 @@
   .view {
     padding: 28px 48px 140px;
   }
+  .editor-page {
+    padding: 28px 48px 140px;
+  }
   .landing-main {
     grid-template-columns: 1fr;
     gap: 40px;
@@ -68,6 +71,9 @@
 /* ---------- Mobile ---------- */
 @media (max-width: 720px) {
   .view {
+    padding: 24px 20px 120px;
+  }
+  .editor-page {
     padding: 24px 20px 120px;
   }
   .view-narrow {

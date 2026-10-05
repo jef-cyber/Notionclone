@@ -773,9 +773,13 @@
   }
 
   async function createNewPage() {
-    const p = await store.createPage({});
-    ui.showToast("Page created", "success");
-    openPage(p.id);
+    try {
+      const p = await store.createPage({});
+      ui.showToast("Page created", "success");
+      openPage(p.id);
+    } catch (err) {
+      ui.showToast(err.message || "Could not create the page", "error");
+    }
   }
 
   /* ============================================================
@@ -1216,13 +1220,17 @@
   async function createFromTemplate(tpl) {
     // A template may include a database block; the store seeds page content
     // and returns once everything is saved.
-    const page = await store.createPage({
-      title: tpl.name,
-      icon: tpl.icon,
-      blocks: tpl.blocks,
-    });
-    ui.showToast('Page created from "' + tpl.name + '"', "success");
-    openPage(page.id);
+    try {
+      const page = await store.createPage({
+        title: tpl.name,
+        icon: tpl.icon,
+        blocks: tpl.blocks,
+      });
+      ui.showToast('Page created from "' + tpl.name + '"', "success");
+      openPage(page.id);
+    } catch (err) {
+      ui.showToast(err.message || "Could not create the page", "error");
+    }
   }
 
   /* ---------- Favorites view ---------- */
@@ -1263,10 +1271,16 @@
     const ok = modal.querySelector("#nwp-ok");
     const done = async () => {
       const title = input.value.trim();
+      if (ok.disabled) return;
+      ok.disabled = true;
       ui.closeModal();
-      const p = await store.createPage({ title, icon: "\uD83D\uDCDD" });
-      ui.showToast("Page created", "success");
-      openPage(p.id);
+      try {
+        const p = await store.createPage({ title, icon: "\uD83D\uDCDD" });
+        ui.showToast("Page created", "success");
+        openPage(p.id);
+      } catch (err) {
+        ui.showToast(err.message || "Could not create the page", "error");
+      }
     };
     ok.addEventListener("click", done);
     input.addEventListener("keydown", (e) => {

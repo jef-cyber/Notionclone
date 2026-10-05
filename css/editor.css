@@ -3,8 +3,9 @@
    ============================================================ */
 .editor-page {
   animation: fade-up 0.2s ease both;
-  padding-top: 28px;
-  padding: 5%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 96px 140px;
 }
 
 /* ---------- Page header ---------- */

@@ -326,7 +326,8 @@
     state.loggedIn = true;
     state.recent = [];
     state.currentPageId = null;
-    if (chosen) loadWorkspacePages();
+    // Pages are loaded by the caller via refreshPages() so login/register make
+    // exactly one list request instead of two.
   }
 
   async function switchWorkspace(workspaceId) {
@@ -379,6 +380,76 @@
         commit("workspace");
       })
       .catch((err) => toast(err.message, "error"));
+  }
+
+  /** Create a workspace and make it the active one. */
+  async function createWorkspace(name) {
+    const data = await api.workspaces.create({ name: name, icon: "\u25C8" });
+    state.workspaces = [data.workspace].concat(state.workspaces || []);
+    await switchWorkspace(data.workspace._id);
+    return data.workspace;
+  }
+
+  /**
+   * Delete a workspace (owner only). Falls back to another workspace, or clears
+   * the session when it was the user's last one.
+   */
+  async function deleteWorkspace(workspaceId) {
+    const id = workspaceId || state.currentWorkspaceId;
+    if (!id) return;
+    await api.workspaces.remove(id);
+    state.workspaces = (state.workspaces || []).filter((w) => w._id !== id);
+    if (state.currentWorkspaceId === id) {
+      const next = state.workspaces[0];
+      if (next) {
+        state.currentWorkspaceId = null;
+        await switchWorkspace(next._id);
+      } else {
+        clearSession();
+        commit("workspace");
+      }
+    } else {
+      commit("workspace");
+    }
+  }
+
+  /* ---------- members ---------- */
+  function reloadMembers() {
+    const workspaceId = state.currentWorkspaceId;
+    if (!workspaceId) return Promise.resolve([]);
+    return api.workspaces
+      .members(workspaceId)
+      .then((data) => {
+        state.members = (data.members || []).map((m) => ({
+          id: m._id,
+          role: m.role,
+          name: m.user ? m.user.name : "Unknown",
+          email: m.user ? m.user.email : "",
+          avatar: m.user ? m.user.avatar : null,
+        }));
+        commit("members");
+        return state.members;
+      });
+  }
+
+  function addMember(email, role) {
+    const workspaceId = state.currentWorkspaceId;
+    if (!workspaceId) return Promise.reject(new Error("No workspace selected"));
+    return api.workspaces.addMember(workspaceId, { email: email, role: role }).then(() => reloadMembers());
+  }
+
+  function updateMemberRole(memberId, role) {
+    const workspaceId = state.currentWorkspaceId;
+    if (!workspaceId) return Promise.reject(new Error("No workspace selected"));
+    return api.workspaces
+      .updateMember(workspaceId, memberId, role)
+      .then(() => reloadMembers());
+  }
+
+  function removeMember(memberId) {
+    const workspaceId = state.currentWorkspaceId;
+    if (!workspaceId) return Promise.reject(new Error("No workspace selected"));
+    return api.workspaces.removeMember(workspaceId, memberId).then(() => reloadMembers());
   }
 
   /* ============================================================
@@ -764,10 +835,13 @@
   }
 
   function refreshPages() {
+    const workspaceId = state.currentWorkspaceId;
+    if (!workspaceId) return Promise.resolve();
     return api.pages
-      .list(state.currentWorkspaceId, { includeArchived: true })
+      .list(workspaceId, { includeArchived: true })
       .then((data) => {
         state.pages = (data.pages || []).map(normalizePage);
+        loadMembers(workspaceId);
         commit("pages");
       })
       .catch((err) => {
@@ -1176,6 +1250,12 @@
     clearSession,
     switchWorkspace,
     renameWorkspace,
+    createWorkspace,
+    deleteWorkspace,
+    reloadMembers,
+    addMember,
+    updateMemberRole,
+    removeMember,
     currentWorkspaceId,
     // accessors
     getState,
