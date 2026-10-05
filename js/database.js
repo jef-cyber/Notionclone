@@ -145,8 +145,19 @@
 
     ensureDataTable
       .then((dataTable) => {
+        // Rebuild the block from the latest server copy. Used after the editor
+        // panel changes properties/name or when the table is deleted.
+        const remount = () => {
+          invalidate(block.dataTableId);
+          return cached(block.dataTableId)
+            .then((fresh) => {
+              frame.textContent = "";
+              renderFrame(frame, fresh, block, pageId, remount);
+            })
+            .catch((err) => ui.showToast(err.message, "error"));
+        };
         frame.textContent = "";
-        renderFrame(frame, dataTable, block, pageId);
+        renderFrame(frame, dataTable, block, pageId, remount);
       })
       .catch((err) => {
         frame.textContent = "";
@@ -155,7 +166,7 @@
       });
   }
 
-  function renderFrame(frame, dataTable, block, pageId) {
+  function renderFrame(frame, dataTable, block, pageId, remount) {
     const state = {
       dataTable: dataTable,
       block: block,
@@ -181,6 +192,10 @@
       else renderRoadmap(body, state, render);
     };
 
+    // The calendar/roadmap empty states and the toolbar both need a way back
+    // into the editor panel.
+    state.openSettings = () => openSettings(state, render, remount);
+
     render();
   }
 
@@ -189,6 +204,7 @@
     const name = document.createElement("div");
     name.className = "db-name";
     name.textContent = state.dataTable.name || "Database";
+    name.title = "Double-click to edit database";
 
     const count = document.createElement("span");
     count.className = "db-count";
@@ -218,6 +234,213 @@
 
     toolbar.textContent = "";
     toolbar.append(name, count, tabs);
+
+    // Double-click anywhere on the toolbar (but not on a control) opens the
+    // database's edit mode.
+    toolbar.ondblclick = (e) => {
+      if (e.target.closest("button, input, select, a, [contenteditable]")) return;
+      state.openSettings();
+    };
+  }
+
+  /* ============================================================
+     Database edit mode (double-click)
+     ============================================================ */
+  const PROPERTY_TYPE_LABELS = {
+    title: "Title",
+    text: "Text",
+    number: "Number",
+    select: "Select",
+    multi_select: "Multi-select",
+    checkbox: "Checkbox",
+    date: "Date",
+    url: "URL",
+    email: "Email",
+    person: "Person",
+    relation: "Relation",
+  };
+
+  function openSettings(state, rerender, remount) {
+    const modal = ui.openModal({
+      title: "Database settings",
+      body: "",
+      footer:
+        '<button class="btn btn-danger" data-db-delete>' +
+        ui.icon("trash") +
+        " Delete database</button>" +
+        '<span class="spacer"></span>' +
+        '<button class="btn btn-secondary" data-modal-close>Close</button>',
+    });
+    const body = modal.querySelector(".modal-body");
+
+    const save = (patch) => {
+      store
+        .updateDataTable(state.dataTable._id, patch)
+        .then((saved) => {
+          state.dataTable = saved;
+          invalidate(saved._id);
+          ui.showToast("Database updated", "success");
+          refresh();
+          if (remount) remount();
+        })
+        .catch((err) => ui.showToast(err.message, "error"));
+    };
+
+    const refresh = () => {
+      const props = state.dataTable.properties || {};
+      const names = Object.keys(props);
+
+      body.innerHTML =
+        '<div class="db-settings">' +
+        '<div class="field"><label for="db-name-input">Name</label>' +
+        '<input id="db-name-input" type="text" maxlength="200" value="' +
+        ui.escapeHtml(state.dataTable.name || "") +
+        '" /></div>' +
+        '<div class="db-settings-section-title">Properties</div>' +
+        '<div class="db-props">' +
+        names
+          .map((n) => {
+            const p = props[n];
+            const deletable = names.length > 1;
+            return (
+              '<div class="db-prop-row"><span class="db-prop-name">' +
+              ui.escapeHtml(n) +
+              '</span><span class="db-prop-type">' +
+              ui.escapeHtml(PROPERTY_TYPE_LABELS[p.type] || p.type) +
+              "</span>" +
+              (deletable
+                ? '<button class="db-icon-btn db-prop-delete" data-prop="' +
+                  ui.escapeHtml(n) +
+                  '" aria-label="Delete property">' +
+                  ui.icon("trash") +
+                  "</button>"
+                : "") +
+              "</div>"
+            );
+          })
+          .join("") +
+        "</div>" +
+        '<div class="db-add-prop">' +
+        '<input id="new-prop-name" type="text" placeholder="New property name" />' +
+        '<select id="new-prop-type" class="select">' +
+        Object.keys(PROPERTY_TYPE_LABELS)
+          .map(
+            (t) =>
+              '<option value="' +
+              t +
+              '"' +
+              (t === "text" ? " selected" : "") +
+              ">" +
+              PROPERTY_TYPE_LABELS[t] +
+              "</option>"
+          )
+          .join("") +
+        "</select>" +
+        '<input id="new-prop-options" type="text" placeholder="Options, comma separated" style="display:none" />' +
+        '<button class="btn btn-primary" id="add-prop-btn">Add</button>' +
+        "</div></div>";
+
+      const nameInput = body.querySelector("#db-name-input");
+      nameInput.addEventListener("change", () => {
+        const name = nameInput.value.trim();
+        if (!name || name === state.dataTable.name) {
+          nameInput.value = state.dataTable.name || "";
+          return;
+        }
+        save({ name: name });
+      });
+
+      const typeSelect = body.querySelector("#new-prop-type");
+      const optionsInput = body.querySelector("#new-prop-options");
+      typeSelect.addEventListener("change", () => {
+        const needs =
+          typeSelect.value === "select" || typeSelect.value === "multi_select";
+        optionsInput.style.display = needs ? "" : "none";
+      });
+
+      body.querySelector("#add-prop-btn").addEventListener("click", () => {
+        const name = body.querySelector("#new-prop-name").value.trim();
+        if (!name) {
+          ui.showToast("Enter a property name", "error");
+          return;
+        }
+        if (
+          props[name] ||
+          (state.dataTable.properties || {})[name]
+        ) {
+          ui.showToast("A property with that name already exists", "error");
+          return;
+        }
+        const type = typeSelect.value;
+        const def = { type: type };
+        if (type === "select" || type === "multi_select") {
+          const opts = optionsInput.value
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          def.options = opts.length ? opts : ["Option 1", "Option 2", "Option 3"];
+        }
+        const next = Object.assign({}, state.dataTable.properties);
+        next[name] = def;
+        save({ properties: next });
+      });
+
+      body.querySelectorAll(".db-prop-delete").forEach((b) => {
+        b.addEventListener("click", () => {
+          const key = b.dataset.prop;
+          ui.confirmDialog({
+            title: "Delete property?",
+            message:
+              'Delete <span class="confirm-name">' +
+              ui.escapeHtml(key) +
+              "</span> and its values in every row? This cannot be undone.",
+            confirmLabel: "Delete property",
+            danger: true,
+          }).then((ok) => {
+            if (!ok) return;
+            const next = Object.assign({}, state.dataTable.properties);
+            delete next[key];
+            const rows = (state.dataTable.rows || []).map((r) => {
+              const copy = Object.assign({}, r);
+              delete copy[key];
+              return copy;
+            });
+            save({ properties: next, rows: rows });
+          });
+        });
+      });
+    };
+
+    modal.querySelector("[data-db-delete]").addEventListener("click", () => {
+      ui.confirmDialog({
+        title: "Delete database?",
+        message:
+          'This removes <span class="confirm-name">' +
+          ui.escapeHtml(state.dataTable.name || "this database") +
+          "</span> and all of its rows from the page. This cannot be undone.",
+        confirmLabel: "Delete database",
+        danger: true,
+      }).then((ok) => {
+        if (!ok) return;
+        const id = state.dataTable._id;
+        store
+          .deleteDataTable(id)
+          .then(() => {
+            // Remove the block too, otherwise the empty editor would instantly
+            // create a brand-new table in its place.
+            store.removeBlock(state.pageId, state.block.id);
+            invalidate(id);
+            ui.closeModal();
+            ui.showToast("Database deleted", "info");
+            if (window.Lumen.editor && window.Lumen.editor.renderBlocks) {
+              window.Lumen.editor.renderBlocks();
+            }
+          })
+          .catch((err) => ui.showToast(err.message, "error"));
+      });
+    });
+
+    refresh();
   }
 
   /* ---------- shared write helper ---------- */
@@ -244,11 +467,12 @@
       const type = state.dataTable.properties[c].type;
       if (type === "checkbox" && values[c] === undefined) values[c] = false;
     });
-    store
+    return store
       .addDataTableRow(state.dataTable._id, values)
       .then((row) => {
         state.dataTable.rows.push(row);
         rerender();
+        return row;
       })
       .catch((err) => {
         invalidate(state.dataTable._id);
@@ -518,7 +742,11 @@
       body.innerHTML =
         '<div class="db-empty">' +
         ui.icon("clock") +
-        "<p>This database has no date column, so there is nothing to lay out on a calendar.</p>" +        "</div>";
+        "<p>This database has no date property, so there is nothing to lay out on a calendar.</p>" +
+        '<button class="btn btn-secondary btn-sm" data-db-settings>Add a date property</button></div>';
+      body
+        .querySelector("[data-db-settings]")
+        .addEventListener("click", () => state.openSettings());
       return;
     }
 
@@ -565,6 +793,7 @@
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const primary = titleColumn(state.dataTable);
     const groupCol = groupColumn(state.dataTable);
+    const todayKey = dayKey(new Date());
 
     for (let i = 0; i < lead; i += 1) {
       const blank = document.createElement("div");
@@ -577,10 +806,41 @@
       const key = dayKey(date);
       const cell = document.createElement("div");
       cell.className = "db-cal-day";
+      if (key === todayKey) cell.classList.add("is-today");
+      cell.dataset.date = key;
       const number = document.createElement("div");
       number.className = "db-cal-num";
       number.textContent = day;
       cell.appendChild(number);
+
+      // Notion-style per-day "+" that appears on hover, so a plain click on the
+      // cell never creates a row by accident.
+      const addDay = document.createElement("button");
+      addDay.className = "db-cal-add-day";
+      addDay.type = "button";
+      addDay.setAttribute("aria-label", "Add row on this day");
+      addDay.innerHTML = ui.icon("plus");
+      addDay.addEventListener("click", (e) => {
+        e.stopPropagation();
+        addRow(state, rerender, { [dateCol]: key }).then((row) => {
+          if (row) openRowDialog(state, row, rerender);
+        });
+      });
+      cell.appendChild(addDay);
+
+      // Dropping a chip here reschedules the row to this day.
+      cell.addEventListener("dragover", (e) => {
+        if (!e.dataTransfer.types.includes("text/plain")) return;
+        e.preventDefault();
+        cell.classList.add("is-over");
+      });
+      cell.addEventListener("dragleave", () => cell.classList.remove("is-over"));
+      cell.addEventListener("drop", (e) => {
+        e.preventDefault();
+        cell.classList.remove("is-over");
+        const rowId = e.dataTransfer.getData("text/plain");
+        if (rowId) setCell(state, rowId, dateCol, key, rerender);
+      });
 
       (state.dataTable.rows || [])
         .filter((r) => {
@@ -591,10 +851,19 @@
           const chip = document.createElement("div");
           chip.className = "db-cal-chip";
           chip.textContent = cellText(row[primary]) || "Untitled";
+          chip.title = "Click to edit \u00b7 drag to reschedule";
+          chip.draggable = true;
+          chip.dataset.id = row.id;
           const group = cellText(row[groupCol]);
           if (group) {
             chip.dataset.group = group.toLowerCase().replace(/[^a-z0-9]+/g, "-");
           }
+          chip.addEventListener("dragstart", (e) => {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", row.id);
+            chip.classList.add("is-dragging");
+          });
+          chip.addEventListener("dragend", () => chip.classList.remove("is-dragging"));
           chip.addEventListener("click", () => openRowDialog(state, row, rerender));
           cell.appendChild(chip);
         });
@@ -605,7 +874,7 @@
     body.appendChild(grid);
 
     const add = document.createElement("button");
-    add.className = "btn btn-ghost btn-sm";
+    add.className = "btn btn-ghost btn-sm db-cal-add";
     add.textContent = "+ New row";
     add.addEventListener("click", () => addRow(state, rerender));
     body.appendChild(add);
@@ -685,23 +954,58 @@
   /* ============================================================
      Roadmap view
      ============================================================ */
+  /** Whole months between two dates (positive when to > from). */
+  function monthDiff(from, to) {
+    return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+  }
+
   function renderRoadmap(body, state, rerender) {
+    const props = state.dataTable.properties || {};
+    const dateCols = columns(state.dataTable).filter((c) => (props[c] || {}).type === "date");
+
+    if (!dateCols.length) {
+      body.innerHTML =
+        '<div class="db-empty">' +
+        ui.icon("zap") +
+        "<p>This database has no date property, so there is nothing to lay out on a roadmap.</p>" +
+        '<button class="btn btn-secondary btn-sm" data-db-settings>Add a date property</button></div>';
+      body
+        .querySelector("[data-db-settings]")
+        .addEventListener("click", () => state.openSettings());
+      return;
+    }
+
+    // Prefer a start-ish column, and pair it with an end-ish column so an item
+    // can span a date range like it does in Notion.
+    const dateCol =
+      dateCols.find((c) => /start|begin|from/i.test(c)) || dateCols[0];
+    const endCol =
+      dateCols.find((c) => c !== dateCol && /end|due|finish|until|complete|to$/i.test(c)) ||
+      dateCols.find((c) => c !== dateCol) ||
+      null;
+
     const groupCol = groupColumn(state.dataTable);
-    const dateCol = columnOfType(state.dataTable, "date");
     const primary = titleColumn(state.dataTable);
     const options = optionsFor(state.dataTable, groupCol);
 
-    const dated = (state.dataTable.rows || []).filter((r) => dateCol && toDate(r[dateCol]));
+    const dated = (state.dataTable.rows || []).filter((r) => toDate(r[dateCol]));
     if (!dated.length) {
       body.innerHTML =
         '<div class="db-empty">' +
         ui.icon("zap") +
         "<p>Add a date to at least one row and the roadmap will lay them out on a timeline.</p>" +
-        "</div>";
+        '<button class="btn btn-secondary btn-sm" data-db-settings>Add a date property</button></div>';
+      body
+        .querySelector("[data-db-settings]")
+        .addEventListener("click", () => state.openSettings());
       return;
     }
 
-    const times = dated.map((r) => toDate(r[dateCol]).getTime());
+    const times = [];
+    dated.forEach((r) => {
+      times.push(toDate(r[dateCol]).getTime());
+      if (endCol && toDate(r[endCol])) times.push(toDate(r[endCol]).getTime());
+    });
     const min = new Date(Math.min.apply(null, times));
     const max = new Date(Math.max.apply(null, times));
 
@@ -719,6 +1023,7 @@
       buckets[buckets.length - 1].getMonth() + 1,
       1
     );
+    const monthWidth = 132; // must match grid-auto-columns in database.css
 
     const grid = document.createElement("div");
     grid.className = "db-roadmap";
@@ -760,15 +1065,55 @@
       });
 
       rows.forEach((r) => {
-        const date = toDate(r[dateCol]);
-        const offset = (date.getFullYear() - spanStart.getFullYear()) * 12 + (date.getMonth() - spanStart.getMonth());
+        const start = toDate(r[dateCol]);
+        const end = endCol ? toDate(r[endCol]) : null;
+        const offset = Math.max(0, monthDiff(spanStart, start));
+        let span = 1;
+        if (end && end > start) span = Math.max(1, monthDiff(start, end) + 1);
+
         const bar = document.createElement("div");
         bar.className = "db-roadmap-bar";
-        bar.style.gridColumn = Math.max(1, offset + 1) + " / span 1";
+        bar.draggable = true;
+        bar.dataset.id = r.id;
+        bar.style.gridColumn = Math.max(1, offset + 1) + " / span " + span;
         bar.textContent = cellText(r[primary]) || "Untitled";
-        bar.title = cellText(r[primary]) + " \u2014 " + dayKey(date);
+        bar.title =
+          cellText(r[primary]) +
+          " \u2014 " +
+          dayKey(start) +
+          (end && end > start ? " \u2192 " + dayKey(end) : "");
+        bar.addEventListener("dragstart", (e) => {
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", r.id);
+          bar.classList.add("is-dragging");
+        });
+        bar.addEventListener("dragend", () => bar.classList.remove("is-dragging"));
         bar.addEventListener("click", () => openRowDialog(state, r, rerender));
         track.appendChild(bar);
+      });
+
+      // Dropping a bar onto a month moves its start date to that month.
+      track.addEventListener("dragover", (e) => {
+        if (!e.dataTransfer.types.includes("text/plain")) return;
+        e.preventDefault();
+        track.classList.add("is-over");
+      });
+      track.addEventListener("dragleave", () => track.classList.remove("is-over"));
+      track.addEventListener("drop", (e) => {
+        e.preventDefault();
+        track.classList.remove("is-over");
+        const rowId = e.dataTransfer.getData("text/plain");
+        const item = (state.dataTable.rows || []).find((x) => String(x.id) === String(rowId));
+        if (!item) return;
+        const rect = track.getBoundingClientRect();
+        const width = monthWidth * buckets.length || rect.width;
+        const col = Math.max(0, Math.min(buckets.length - 1, Math.floor((e.clientX - rect.left) / (width / buckets.length))));
+        const original = toDate(item[dateCol]);
+        const targetDay = original ? original.getDate() : 1;
+        const targetMonth = new Date(spanStart.getFullYear(), spanStart.getMonth() + col, 1);
+        const lastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate();
+        const next = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), Math.min(targetDay, lastDay));
+        setCell(state, rowId, dateCol, dayKey(next), rerender);
       });
 
       row.appendChild(track);
@@ -782,7 +1127,8 @@
         ui.escapeHtml(dayKey(spanStart)) +
         " \u2192 " +
         ui.escapeHtml(dayKey(spanEnd)) +
-        ".</p>"
+        (endCol ? " \u00b7 bars span " + ui.escapeHtml(dateCol) + " to " + ui.escapeHtml(endCol) : "") +
+        " \u00b7 drag a bar to reschedule it.</p>"
     );
   }
 

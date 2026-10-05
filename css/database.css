@@ -538,3 +538,138 @@
     flex-basis: 200px;
   }
 }
+
+/* ============================================================
+   Database edit mode (double-click)
+   ============================================================ */
+.db-settings-section-title {
+  margin: 18px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.db-props {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.db-prop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.db-prop-row:last-child {
+  border-bottom: none;
+}
+
+.db-prop-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-prop-type {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.db-prop-delete {
+  opacity: 1;
+}
+.db-prop-row:hover .db-prop-delete {
+  opacity: 1;
+}
+
+.db-add-prop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.db-add-prop input,
+.db-add-prop select {
+  flex: 1;
+  min-width: 120px;
+}
+.db-add-prop #new-prop-options {
+  flex-basis: 100%;
+}
+
+/* ============================================================
+   Calendar / Roadmap interactions
+   ============================================================ */
+.db-cal-day.is-today {
+  background: var(--accent-soft);
+}
+.db-cal-day.is-today .db-cal-num {
+  color: var(--accent);
+  font-weight: 700;
+}
+.db-cal-day.is-over {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.db-cal-add-day {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+.db-cal-day {
+  position: relative;
+}
+.db-cal-day:hover .db-cal-add-day {
+  opacity: 1;
+}
+.db-cal-add-day:hover {
+  color: var(--accent);
+}
+.db-cal-add-day .icon {
+  width: 12px;
+  height: 12px;
+}
+/* Touch devices have no hover, so always offer the add button there. */
+@media (hover: none) {
+  .db-cal-add-day {
+    opacity: 1;
+  }
+}
+
+.db-cal-chip.is-dragging {
+  opacity: 0.4;
+}
+
+.db-cal-add {
+  margin: 10px;
+}
+
+.db-roadmap-track.is-over {
+  background: var(--accent-soft);
+}
+
+.db-roadmap-bar.is-dragging {
+  opacity: 0.4;
+}

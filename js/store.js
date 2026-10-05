@@ -1085,6 +1085,10 @@
     return api.dataTables.create(pageId, payload).then((data) => data.dataTable);
   }
 
+  function deleteDataTable(id) {
+    return api.dataTables.remove(id);
+  }
+
   function addDataTableRow(id, values) {
     return api.dataTables.addRow(id, values).then((data) => data.row);
   }
@@ -1299,6 +1303,7 @@
     getDataTable,
     updateDataTable,
     createDataTable,
+    deleteDataTable,
     addDataTableRow,
     updateDataTableRow,
     deleteDataTableRow,
