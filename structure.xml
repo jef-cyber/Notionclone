@@ -1,9 +1,237 @@
 <?xml version='1.0' encoding='utf-8'?>
 <repo n="Notionclone">
   <meta>
-    <dep />
+    <dep>path,error,express,routes,cors,dotenv,models,mongoose,bcryptjs,workspace,onboarding,block,dataTable,page,access,crypto,jsonwebtoken</dep>
   </meta>
   <files>
+    <f p="backend\app.js" e=".js">
+      <imp>path,error,express,routes,cors</imp>
+    </f>
+    <f p="backend\server.js" e=".js">
+      <imp>dotenv,db,models,app</imp>
+      <fn n="start" p="()" />
+      <fn n="shutdown" p="(signal)" />
+    </f>
+    <f p="backend\config\constants.js" e=".js" />
+    <f p="backend\config\db.js" e=".js">
+      <imp>mongoose,models</imp>
+      <fn n="connect" p="(uri)" />
+      <fn n="disconnect" p="()" />
+      <fn n="isConnected" p="()" />
+    </f>
+    <f p="backend\controllers\auth.controller.js" e=".js">
+      <imp>bcryptjs,respond,token,models,ApiError,workspace,onboarding</imp>
+      <fn n="validateCredentials" p="({ name, email, password, confirmPassword }, { isRegister })" />
+      <fn n="register" p="(req, res)" />
+      <fn n="login" p="(req, res)" />
+      <fn n="logout" p="(_req, res)" />
+      <fn n="me" p="(req, res)" />
+      <fn n="updateMe" p="(req, res)" />
+    </f>
+    <f p="backend\controllers\block.controller.js" e=".js">
+      <imp>block,respond</imp>
+      <fn n="list" p="(req, res)" />
+      <fn n="getOne" p="(req, res)" />
+      <fn n="create" p="(req, res)" />
+      <fn n="update" p="(req, res)" />
+      <fn n="remove" p="(req, res)" />
+      <fn n="reorder" p="(req, res)" />
+      <fn n="search" p="(req, res)" />
+    </f>
+    <f p="backend\controllers\dataTable.controller.js" e=".js">
+      <imp>dataTable,respond</imp>
+      <fn n="list" p="(req, res)" />
+      <fn n="getOne" p="(req, res)" />
+      <fn n="create" p="(req, res)" />
+      <fn n="update" p="(req, res)" />
+      <fn n="remove" p="(req, res)" />
+      <fn n="addRow" p="(req, res)" />
+      <fn n="updateRow" p="(req, res)" />
+      <fn n="deleteRow" p="(req, res)" />
+    </f>
+    <f p="backend\controllers\page.controller.js" e=".js">
+      <imp>page,respond</imp>
+      <fn n="list" p="(req, res)" />
+      <fn n="create" p="(req, res)" />
+      <fn n="getOne" p="(req, res)" />
+      <fn n="update" p="(req, res)" />
+      <fn n="remove" p="(req, res)" />
+      <fn n="children" p="(req, res)" />
+      <fn n="duplicate" p="(req, res)" />
+      <fn n="search" p="(req, res)" />
+    </f>
+    <f p="backend\controllers\workspace.controller.js" e=".js">
+      <imp>workspace,respond</imp>
+      <fn n="list" p="(req, res)" />
+      <fn n="create" p="(req, res)" />
+      <fn n="getOne" p="(req, res)" />
+      <fn n="update" p="(req, res)" />
+      <fn n="remove" p="(req, res)" />
+      <fn n="listMembers" p="(req, res)" />
+      <fn n="addMember" p="(req, res)" />
+      <fn n="updateMember" p="(req, res)" />
+      <fn n="removeMember" p="(req, res)" />
+    </f>
+    <f p="backend\middleware\auth.middleware.js" e=".js">
+      <imp>ApiError,objectId,models,token,constants</imp>
+      <fn n="extractToken" p="(req)" />
+      <fn n="requireAuth" p="(req, _res, next)" />
+      <fn n="optionalAuth" p="(req, _res, next)" />
+      <fn n="requireWorkspaceRole" p="(param, minimum = &quot;viewer&quot;)" />
+      <fn n="roleAtLeast" p="(role, minimum)" />
+      <fn n="isManager" p="(role)" />
+    </f>
+    <f p="backend\middleware\error.middleware.js" e=".js">
+      <imp>ApiError,objectId</imp>
+      <fn n="notFound" p="(req, _res, next)" />
+      <fn n="normalize" p="(err)" />
+      <fn n="errorHandler" p="(err, req, res, _next)" />
+    </f>
+    <f p="backend\models\Block.js" e=".js">
+      <imp>mongoose</imp>
+    </f>
+    <f p="backend\models\DataTable.js" e=".js">
+      <imp>mongoose</imp>
+    </f>
+    <f p="backend\models\index.js" e=".js">
+      <imp>constants,Workspace,WorkspaceMember,User,Page,Block,DataTable</imp>
+      <fn n="assertCollectionNames" p="()" />
+    </f>
+    <f p="backend\models\Page.js" e=".js">
+      <imp>mongoose</imp>
+    </f>
+    <f p="backend\models\User.js" e=".js">
+      <imp>mongoose</imp>
+      <fn n="transform" p="(_doc, ret)" />
+    </f>
+    <f p="backend\models\Workspace.js" e=".js">
+      <imp>mongoose</imp>
+    </f>
+    <f p="backend\models\WorkspaceMember.js" e=".js">
+      <imp>mongoose,constants</imp>
+    </f>
+    <f p="backend\routes\auth.routes.js" e=".js">
+      <imp>express,auth,asyncHandler</imp>
+    </f>
+    <f p="backend\routes\block.routes.js" e=".js">
+      <imp>express,auth,asyncHandler,block</imp>
+    </f>
+    <f p="backend\routes\dataTable.routes.js" e=".js">
+      <imp>express,asyncHandler,auth,dataTable</imp>
+    </f>
+    <f p="backend\routes\index.js" e=".js">
+      <imp>express,workspace,auth,block,page,dataTable</imp>
+    </f>
+    <f p="backend\routes\page.routes.js" e=".js">
+      <imp>express,asyncHandler,page,block,auth</imp>
+    </f>
+    <f p="backend\routes\workspace.routes.js" e=".js">
+      <imp>express,asyncHandler,auth,workspace</imp>
+    </f>
+    <f p="backend\services\access.service.js" e=".js">
+      <imp>models,ApiError,objectId,auth</imp>
+      <fn n="getMembership" p="(workspaceId, userId, minimumRole = &quot;viewer&quot;)" />
+      <fn n="requirePageAccess" p="(pageId, userId, minimumRole = &quot;viewer&quot;)" />
+      <fn n="requireBlockAccess" p="(blockId, userId, minimumRole = &quot;viewer&quot;)" />
+      <fn n="requireDataTableAccess" p="(dataTableId, userId, minimumRole = &quot;viewer&quot;)" />
+      <fn n="assertNoCycle" p="(pageId, parentPageId)" />
+    </f>
+    <f p="backend\services\block.service.js" e=".js">
+      <imp>models,access,objectId,ApiError</imp>
+      <fn n="listByPage" p="(pageId, userId)" />
+      <fn n="getById" p="(blockId, userId)" />
+      <fn n="normalizePayload" p="(body)" />
+      <fn n="create" p="(pageId, userId, body)" />
+      <fn n="update" p="(blockId, patch, userId)" />
+      <fn n="remove" p="(blockId, userId)" />
+      <fn n="reorder" p="(pageId, orderedIds, userId)" />
+      <fn n="search" p="(workspaceId, userId, query, limit = 40)" />
+    </f>
+    <f p="backend\services\dataTable.service.js" e=".js">
+      <imp>crypto,ApiError,models,objectId,constants,access</imp>
+      <fn n="defaultProperties" p="(name)" />
+      <fn n="newRowId" p="()" />
+      <fn n="validateProperties" p="(properties)" />
+      <fn n="coerceRow" p="(values, properties)" />
+      <fn n="listByPage" p="(pageId, userId)" />
+      <fn n="getById" p="(dataTableId, userId)" />
+      <fn n="create" p="(pageId, userId, body)" />
+      <fn n="update" p="(dataTableId, patch, userId)" />
+      <fn n="remove" p="(dataTableId, userId)" />
+      <fn n="addRow" p="(dataTableId, userId, body = {})" />
+      <fn n="updateRow" p="(dataTableId, rowId, userId, patch = {})" />
+      <fn n="deleteRow" p="(dataTableId, rowId, userId)" />
+    </f>
+    <f p="backend\services\onboarding.service.js" e=".js">
+      <imp>models</imp>
+      <fn n="seedWorkspace" p="(workspaceId, userId)" />
+    </f>
+    <f p="backend\services\page.service.js" e=".js">
+      <imp>models,access,ApiError,objectId</imp>
+      <fn n="listByWorkspace" p="(workspaceId, userId, { includeArchived = false } = {})" />
+      <fn n="listChildren" p="(pageId, userId)" />
+      <fn n="getById" p="(pageId, userId)" />
+      <fn n="create" p="(workspaceId, userId, { parentPageId, title, icon, position })" />
+      <fn n="update" p="(pageId, patch, userId)" />
+      <fn n="move" p="(pageId, parentPageId, position, userId)" />
+      <fn n="collectSubtree" p="(pageId)" />
+      <fn n="walk" p="(id)" />
+      <fn n="remove" p="(pageId, userId)" />
+      <fn n="duplicate" p="(pageId, userId)" />
+      <fn n="search" p="(workspaceId, userId, query)" />
+    </f>
+    <f p="backend\services\workspace.service.js" e=".js">
+      <imp>models,auth,objectId,ApiError,constants,access</imp>
+      <fn n="listForUser" p="(userId)" />
+      <fn n="createForUser" p="(userId, { name, icon })" />
+      <fn n="getById" p="(workspaceId)" />
+      <fn n="update" p="(workspaceId, patch, userId)" />
+      <fn n="remove" p="(workspaceId, userId)" />
+      <fn n="listMembers" p="(workspaceId, userId)" />
+      <fn n="addMember" p="(workspaceId, { email, role }, actorId)" />
+      <fn n="updateMemberRole" p="(workspaceId, memberId, role, actorId)" />
+      <fn n="removeMember" p="(workspaceId, memberId, actorId)" />
+    </f>
+    <f p="backend\utils\ApiError.js" e=".js">
+      <cls n="ApiError">
+        <fn n="constructor" p="(status, message, details)" />
+        <fn n="badRequest" p="(message = &quot;Bad request&quot;, details)" />
+        <fn n="unauthorized" p="(message = &quot;Authentication required&quot;)" />
+        <fn n="forbidden" p="(message = &quot;You do not have access to this resource&quot;)" />
+        <fn n="notFound" p="(message = &quot;Resource not found&quot;)" />
+        <fn n="conflict" p="(message = &quot;Resource already exists&quot;)" />
+      </cls>
+    </f>
+    <f p="backend\utils\asyncHandler.js" e=".js" />
+    <f p="backend\utils\objectId.js" e=".js">
+      <imp>mongoose,ApiError</imp>
+      <fn n="isValidObjectId" p="(value)" />
+      <fn n="assertObjectId" p="(value, label = &quot;id&quot;)" />
+      <fn n="toObjectIdOrNull" p="(value)" />
+    </f>
+    <f p="backend\utils\respond.js" e=".js">
+      <fn n="ok" p="(res, data, status = 200)" />
+    </f>
+    <f p="backend\utils\token.js" e=".js">
+      <imp>jsonwebtoken,ApiError</imp>
+      <fn n="getSecret" p="()" />
+      <fn n="sign" p="(userId, extra)" />
+      <fn n="verify" p="(token)" />
+    </f>
+    <f p="js\api.js" e=".js">
+      <fn n="baseUrl" p="()" />
+      <fn n="setBaseUrl" p="(url)" />
+      <fn n="getToken" p="()" />
+      <fn n="setToken" p="(token)" />
+      <fn n="ApiError" p="(message, status, details)" />
+      <fn n="query" p="(params)" />
+      <fn n="request" p="(method, path, options)" />
+      <fn n="get" p="(path, queryParams, opts)" />
+      <fn n="post" p="(path, body, opts)" />
+      <fn n="patch" p="(path, body, opts)" />
+      <fn n="del" p="(path, opts)" />
+      <fn n="health" p="()" />
+    </f>
     <f p="js\app.js" e=".js">
       <fn n="boot" p="()" />
       <fn n="parseHash" p="()" />
@@ -22,6 +250,10 @@
       <fn n="wireAuthForms" p="()" />
       <fn n="setError" p="(errorEl, message)" />
       <fn n="clearForm" p="(els)" />
+      <fn n="showFormError" p="(message)" />
+      <fn n="clearFormError" p="()" />
+      <fn n="setBusy" p="(button, busy, label)" />
+      <fn n="applyErrors" p="(errEls, errors)" />
       <fn n="clearLogin" p="()" />
       <fn n="submitLogin" p="()" />
       <fn n="clearReg" p="()" />
@@ -32,7 +264,6 @@
       <fn n="onStoreChange" p="(reason)" />
       <fn n="syncEditorMeta" p="()" />
       <fn n="renderTopbar" p="()" />
-      <fn n="svg" p="(name)" />
       <fn n="openMoreMenu" p="(page, x, y)" />
       <fn n="doDelete" p="()" />
       <fn n="openProfileMenu" p="(x, y)" />
@@ -44,6 +275,7 @@
       <fn n="btn" p="(id, view, iconName, label)" />
       <fn n="createNewPage" p="()" />
       <fn n="renderContent" p="()" />
+      <fn n="renderLoading" p="()" />
       <fn n="renderMissingPage" p="()" />
       <fn n="renderDashboard" p="()" />
       <fn n="pageCard" p="(page, showStar)" />
@@ -66,6 +298,7 @@
       <fn n="wireResultClicks" p="()" />
       <fn n="renderEmpty" p="()" />
       <fn n="onInput" p="()" />
+      <fn n="runSearch" p="(q)" />
       <fn n="renderTrash" p="()" />
       <fn n="openCommandPalette" p="()" />
       <fn n="renderList" p="(filter)" />
@@ -78,20 +311,60 @@
     <f p="js\auth.js" e=".js">
       <fn n="validateLogin" p="(email, password)" />
       <fn n="validateRegister" p="(name, email, password, confirm)" />
+      <fn n="toResult" p="(payload)" />
       <fn n="login" p="(email, password)" />
       <fn n="register" p="(name, email, password, confirm)" />
-      <fn n="googleLogin" p="()" />
       <fn n="isLoggedIn" p="()" />
       <fn n="logout" p="()" />
     </f>
+    <f p="js\blockRenderer.js" e=".js">
+      <fn n="render" p="(block, ctx)" />
+      <fn n="editable" p="(block, className, pageId, placeholder)" />
+      <fn n="image" p="(block, ctx)" />
+      <fn n="database" p="(block, pageId)" />
+    </f>
     <f p="js\data.js" e=".js" />
+    <f p="js\database.js" e=".js">
+      <fn n="cached" p="(id)" />
+      <fn n="invalidate" p="(id)" />
+      <fn n="columns" p="(dataTable)" />
+      <fn n="titleColumn" p="(dataTable)" />
+      <fn n="columnOfType" p="(dataTable, type)" />
+      <fn n="groupColumn" p="(dataTable)" />
+      <fn n="optionsFor" p="(dataTable, column)" />
+      <fn n="toDate" p="(value)" />
+      <fn n="dayKey" p="(date)" />
+      <fn n="cellText" p="(value)" />
+      <fn n="statusColor" p="(value)" />
+      <fn n="statusColumnOf" p="(dataTable)" />
+      <fn n="setStatusColor" p="(el, value)" />
+      <fn n="mount" p="(host, opts)" />
+      <fn n="remount" p="()" />
+      <fn n="renderFrame" p="(frame, dataTable, block, pageId, remount)" />
+      <fn n="render" p="()" />
+      <fn n="renderToolbar" p="(toolbar, state, rerender)" />
+      <fn n="openSettings" p="(state, rerender, remount)" />
+      <fn n="save" p="(patch)" />
+      <fn n="refresh" p="()" />
+      <fn n="setCell" p="(state, rowId, column, value, rerender)" />
+      <fn n="addRow" p="(state, rerender, extra)" />
+      <fn n="deleteRow" p="(state, rowId, rerender)" />
+      <fn n="makeCell" p="(state, rerender, row, column)" />
+      <fn n="renderTable" p="(body, state, rerender)" />
+      <fn n="deleteButton" p="(state, row, rerender)" />
+      <fn n="renderBoard" p="(body, state, rerender)" />
+      <fn n="miniMeta" p="(state, row, skip)" />
+      <fn n="renderCalendar" p="(body, state, rerender)" />
+      <fn n="openRowDialog" p="(state, row, rerender)" />
+      <fn n="cellInputHtml" p="(state, row, column)" />
+      <fn n="monthDiff" p="(from, to)" />
+      <fn n="renderRoadmap" p="(body, state, rerender)" />
+    </f>
     <f p="js\editor.js" e=".js">
       <fn n="render" p="(page, opts)" />
       <fn n="syncMeta" p="(page)" />
       <fn n="renderBlocks" p="()" />
       <fn n="renderBlock" p="(block, numberSeq)" />
-      <fn n="makeEditable" p="(block, className, placeholder)" />
-      <fn n="makeTable" p="(block)" />
       <fn n="attachBlockEvents" p="(wrap, block)" />
       <fn n="onBlockKeydown" p="(wrap, block, editable, e)" />
       <fn n="applySlashSelection" p="()" />
@@ -128,6 +401,8 @@
       <fn n="close" p="()" />
       <fn n="renderRecent" p="()" />
       <fn n="onInput" p="()" />
+      <fn n="runSearch" p="(q)" />
+      <fn n="loadingHtml" p="()" />
       <fn n="resultItemHtml" p="(page, i, title, snippet, ql)" />
       <fn n="hl" p="(text)" />
       <fn n="escapeRegExp" p="(str)" />
@@ -153,8 +428,18 @@
       <fn n="clearDropTargets" p="()" />
       <fn n="onTreeDragover" p="(e)" />
       <fn n="onTreeDrop" p="(e)" />
+      <fn n="createTopLevelPage" p="()" />
       <fn n="renderFavorites" p="()" />
       <fn n="openWorkspaceMenu" p="(btn)" />
+      <fn n="roleLabel" p="(role)" />
+      <fn n="promptText" p="(opts)" />
+      <fn n="finish" p="(value)" />
+      <fn n="createWorkspaceFlow" p="()" />
+      <fn n="deleteWorkspaceFlow" p="()" />
+      <fn n="openMembers" p="()" />
+      <fn n="render" p="()" />
+      <fn n="renameWorkspace" p="()" />
+      <fn n="save" p="()" />
       <fn n="renderAll" p="()" />
       <fn n="init" p="()" />
       <fn n="setCollapsed" p="(collapsed)" />
@@ -164,12 +449,35 @@
     <f p="js\store.js" e=".js">
       <fn n="uid" p="(prefix)" />
       <fn n="clone" p="(obj)" />
+      <fn n="isObjectId" p="(value)" />
+      <fn n="toast" p="(message, kind)" />
+      <fn n="toApiType" p="(uiType)" />
+      <fn n="toUiType" p="(apiType)" />
+      <fn n="apiId" p="(block)" />
+      <fn n="normalizePage" p="(doc)" />
+      <fn n="normalizeBlock" p="(doc)" />
+      <fn n="toApiPayload" p="(block, position)" />
       <fn n="buildInitial" p="()" />
-      <fn n="load" p="()" />
+      <fn n="loadPrefs" p="()" />
+      <fn n="savePrefs" p="()" />
       <fn n="save" p="()" />
       <fn n="saveDebounced" p="()" />
       <fn n="commit" p="(reason)" />
       <fn n="mutate" p="(fn, reason)" />
+      <fn n="currentWorkspaceId" p="()" />
+      <fn n="loadSession" p="()" />
+      <fn n="clearSession" p="()" />
+      <fn n="adoptSession" p="(payload)" />
+      <fn n="switchWorkspace" p="(workspaceId)" />
+      <fn n="loadWorkspacePages" p="()" />
+      <fn n="loadMembers" p="(workspaceId)" />
+      <fn n="renameWorkspace" p="(name)" />
+      <fn n="createWorkspace" p="(name)" />
+      <fn n="deleteWorkspace" p="(workspaceId)" />
+      <fn n="reloadMembers" p="()" />
+      <fn n="addMember" p="(email, role)" />
+      <fn n="updateMemberRole" p="(memberId, role)" />
+      <fn n="removeMember" p="(memberId)" />
       <fn n="getState" p="()" />
       <fn n="pagesById" p="()" />
       <fn n="getPage" p="(id)" />
@@ -181,31 +489,52 @@
       <fn n="getFavorites" p="()" />
       <fn n="getTopLevelPages" p="()" />
       <fn n="getSiblings" p="(id)" />
+      <fn n="isExpanded" p="(id)" />
+      <fn n="setExpanded" p="(id, open)" />
+      <fn n="applyServerPage" p="(doc)" />
+      <fn n="defaultBlocksFor" p="(type)" />
       <fn n="createPage" p="(opts)" />
-      <fn n="ensureBlockIds" p="(block, i)" />
       <fn n="updatePage" p="(id, patch, reason)" />
+      <fn n="queuePagePatch" p="(id, patch)" />
+      <fn n="flushPagePatch" p="(id)" />
       <fn n="toggleFavorite" p="(id)" />
-      <fn n="deletePage" p="(id)" />
+      <fn n="updatePageIcon" p="(id, icon)" />
       <fn n="moveToTrash" p="(id)" />
       <fn n="restorePage" p="(id)" />
+      <fn n="deletePage" p="(id)" />
       <fn n="deletePagePermanently" p="(id)" />
       <fn n="emptyTrash" p="()" />
       <fn n="getTrashPages" p="()" />
       <fn n="duplicatePage" p="(id)" />
       <fn n="movePage" p="(id, parentId, beforeId)" />
+      <fn n="refreshPages" p="()" />
+      <fn n="queueFor" p="(pageId)" />
+      <fn n="scheduleFlush" p="(pageId)" />
+      <fn n="flushPage" p="(pageId)" />
+      <fn n="flushAll" p="()" />
+      <fn n="createBlockRemote" p="(pageId, block, position)" />
       <fn n="getPageBlocks" p="(id)" />
+      <fn n="hydratePage" p="(id)" />
+      <fn n="markPageStale" p="(id)" />
       <fn n="updateBlock" p="(id, blockId, patch)" />
-      <fn n="updatePageIcon" p="(id, icon)" />
       <fn n="addBlock" p="(pageId, type, content, index)" />
       <fn n="removeBlock" p="(pageId, blockId)" />
       <fn n="setBlockType" p="(pageId, blockId, type)" />
       <fn n="moveBlockIndex" p="(pageId, fromIdx, toIdx)" />
+      <fn n="listDataTables" p="(pageId)" />
+      <fn n="getDataTable" p="(id)" />
+      <fn n="updateDataTable" p="(id, patch)" />
+      <fn n="createDataTable" p="(pageId, payload)" />
+      <fn n="deleteDataTable" p="(id)" />
+      <fn n="addDataTableRow" p="(id, values)" />
+      <fn n="updateDataTableRow" p="(id, rowId, values)" />
+      <fn n="deleteDataTableRow" p="(id, rowId)" />
       <fn n="navigate" p="(pageId)" />
       <fn n="setView" p="(view)" />
       <fn n="setLoggedIn" p="(v)" />
       <fn n="touchRecent" p="(list, id)" />
       <fn n="setRecent" p="(id)" />
-      <fn n="markNotificationsRead" p="()" />
+      <fn n="getActivity" p="()" />
       <fn n="searchPages" p="(query)" />
       <fn n="addRecentSearch" p="(query)" />
       <fn n="clearRecentSearches" p="()" />
@@ -225,6 +554,8 @@
       <fn n="debounce" p="(fn, wait)" />
       <fn n="initials" p="(name)" />
       <fn n="isMobile" p="()" />
+      <fn n="isApple" p="()" />
+      <fn n="relativeTime" p="(iso)" />
       <fn n="copyToClipboard" p="(text)" />
       <fn n="fallbackCopy" p="(text)" />
       <fn n="showToast" p="(message, type)" />
