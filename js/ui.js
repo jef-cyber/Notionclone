@@ -10,6 +10,7 @@
   const PATHS = {
     plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
     "chevron-right": '<polyline points="9 18 15 12 9 6"/>',
+    "chevron-left": '<polyline points="15 18 9 12 15 6"/>',
     "chevron-down": '<polyline points="6 9 12 15 18 9"/>',
     more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
     search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
@@ -114,6 +115,34 @@
 
   function isMobile() {
     return window.matchMedia("(max-width: 720px)").matches;
+  }
+
+  /**
+   * True on Mac/iOS, used to show the right shortcut glyph. `navigator.platform`
+   * is deprecated and missing in some contexts, so every source is optional and
+   * a false negative just means showing "Ctrl".
+   */
+  function isApple() {
+    const nav = window.navigator || {};
+    const platform = (nav.userAgentData && nav.userAgentData.platform) || nav.platform || "";
+    if (platform) return /mac|iphone|ipad|ipod/i.test(platform);
+    return /mac os x/i.test(nav.userAgent || "");
+  }
+
+  /** "3 min ago" for anything recent, an absolute date once it is old. */
+  function relativeTime(iso) {
+    if (!iso) return "";
+    const then = new Date(iso);
+    if (isNaN(then.getTime())) return "";
+    const seconds = Math.round((Date.now() - then.getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return minutes + " min ago";
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return hours + (hours === 1 ? " hour ago" : " hours ago");
+    const days = Math.round(hours / 24);
+    if (days < 30) return days + (days === 1 ? " day ago" : " days ago");
+    return then.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
 
   function copyToClipboard(text) {
@@ -382,6 +411,8 @@
     debounce,
     initials,
     isMobile,
+    isApple,
+    relativeTime,
     copyToClipboard,
     showToast,
     openModal,

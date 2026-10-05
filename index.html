@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="assets/icons/favicon.png" type="image/svg+xml" />
-    <title>Notion</title>
+    <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+    <title>Lumen — All-in-one workspace</title>
     <meta
       name="description"
-      content="Notion is a frontend-only Notion-inspired workspace: notes, pages, tasks, and templates."
+      content="Lumen is a Notion-inspired workspace: notes, pages, tasks, and databases, backed by a Node API."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="css/style.css" />
     <link rel="stylesheet" href="css/sidebar.css" />
     <link rel="stylesheet" href="css/editor.css" />
+    <link rel="stylesheet" href="css/database.css" />
     <link rel="stylesheet" href="css/responsive.css" />
   </head>
   <body>
@@ -25,8 +26,8 @@
     <section id="view-landing" class="landing">
       <header class="landing-header">
         <div class="brand">
-          <img class="brand-logo" src="assets/icons/logo.png" alt="" aria-hidden="true" />
-          <span class="brand-name">Notion</span>
+          <img class="brand-logo" src="assets/icons/logo.svg" alt="" aria-hidden="true" />
+          <span class="brand-name">Lumen</span>
         </div>
         <div class="landing-header-actions">
           <button id="landing-theme" class="icon-btn" type="button" aria-label="Toggle theme">
@@ -47,8 +48,8 @@
             All your notes, projects,<br />and ideas in <span class="text-accent">one place</span>.
           </h1>
           <p class="landing-tagline">
-            A fast, minimal workspace for notes, docs, tasks, and templates. Built to feel like a
-            real productivity app — no backend, just your ideas.
+            A fast, minimal workspace for notes, docs, tasks, and databases. Built to feel like a
+            real productivity app — your content is saved to your own workspace, not your browser.
           </p>
           <div class="landing-cta">
             <button id="landing-signup-2" class="btn btn-primary btn-lg" type="button">
@@ -64,6 +65,9 @@
             </span>
             <span class="feature-pill">
               <span class="icon icon-check" aria-hidden="true"></span> Tasks &amp; lists
+            </span>
+            <span class="feature-pill">
+              <span class="icon icon-check" aria-hidden="true"></span> Databases &amp; boards
             </span>
             <span class="feature-pill">
               <span class="icon icon-check" aria-hidden="true"></span> Light &amp; dark mode
@@ -82,7 +86,7 @@
       <footer class="landing-footer">
         <span>Lumen</span>
         <span class="landing-footer-dot">·</span>
-        <span>Frontend Phase 1</span>
+        <span>Connected to the Lumen API</span>
         <span class="landing-footer-dot">·</span>
         <span>Tip: press <kbd>Ctrl</kbd> + <kbd>K</kbd> to search anywhere</span>
       </footer>
@@ -92,8 +96,8 @@
     <section id="view-login" class="auth-view" hidden>
       <div class="auth-card">
         <div class="auth-brand">
-          <img class="brand-logo" src="assets/icons/logo.png" alt="" aria-hidden="true" />
-          <span class="brand-name">Notion</span>
+          <img class="brand-logo" src="assets/icons/logo.svg" alt="" aria-hidden="true" />
+          <span class="brand-name">Lumen</span>
         </div>
         <h1 class="auth-title">Welcome back</h1>
         <p class="auth-sub">Log in to your workspace.</p>
@@ -109,16 +113,12 @@
             <div class="auth-error" id="login-password-error"></div>
           </div>
           <button id="login-submit" class="btn btn-primary btn-block" type="button">Log in</button>
-          <div class="auth-divider"><span>or</span></div>
-          <button id="login-google" class="btn btn-secondary btn-block" type="button">
-            <span class="g-logo">G</span><span>Continue with Google</span>
-          </button>
           <p class="auth-switch">
             Don&rsquo;t have an account?
             <button id="login-to-register" class="auth-link" type="button">Sign up</button>
           </p>
         </div>
-        <p class="auth-hint">Demo: any valid email and password will work.</p>
+        <p class="auth-hint">Your account and workspace live in the Lumen database.</p>
       </div>
     </section>
 
@@ -126,8 +126,8 @@
     <section id="view-register" class="auth-view" hidden>
       <div class="auth-card">
         <div class="auth-brand">
-          <img class="brand-logo" src="assets/icons/logo.png" alt="" aria-hidden="true" />
-          <span class="brand-name">Notion</span>
+          <img class="brand-logo" src="assets/icons/logo.svg" alt="" aria-hidden="true" />
+          <span class="brand-name">Lumen</span>
         </div>
         <h1 class="auth-title">Create your account</h1>
         <p class="auth-sub">Start your workspace in seconds.</p>
@@ -153,16 +153,12 @@
             <div class="auth-error" id="reg-confirm-error"></div>
           </div>
           <button id="reg-submit" class="btn btn-primary btn-block" type="button">Create account</button>
-          <div class="auth-divider"><span>or</span></div>
-          <button id="reg-google" class="btn btn-secondary btn-block" type="button">
-            <span class="g-logo">G</span><span>Continue with Google</span>
-          </button>
           <p class="auth-switch">
             Already have an account?
             <button id="reg-to-login" class="auth-link" type="button">Log in</button>
           </p>
         </div>
-        <p class="auth-hint">Demo: no real account is created.</p>
+        <p class="auth-hint">We&rsquo;ll create your first workspace and a starter page for you.</p>
       </div>
     </section>
 
@@ -186,14 +182,35 @@
     <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="false"></div>
     <input type="file" id="import-file" accept=".txt,.md,.markdown" hidden />
 
+    <!--
+      Load order matters. Each module reads the ones above it off window.Lumen
+      while it is being evaluated, so a module can only depend on scripts listed
+      before it:
+
+        data.js      static app metadata, settings defaults, templates
+        api.js       the only module that knows about HTTP
+        ui.js        icons, toasts, modals, menus
+        store.js     needs api + data
+        auth.js      needs api
+        database.js  needs store + ui   (table/board/calendar/roadmap views)
+        blockRenderer.js  needs store + ui
+        editor.js    needs store + ui + blockRenderer
+        sidebar.js   needs store + ui
+        search.js    needs store + ui
+        theme.js     needs store + ui
+        app.js       boots everything, so it goes last
+    -->
     <script src="js/data.js"></script>
-    <script src="js/store.js"></script>
+    <script src="js/api.js"></script>
     <script src="js/ui.js"></script>
-    <script src="js/theme.js"></script>
+    <script src="js/store.js"></script>
     <script src="js/auth.js"></script>
-    <script src="js/sidebar.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/blockRenderer.js"></script>
     <script src="js/editor.js"></script>
+    <script src="js/sidebar.js"></script>
     <script src="js/search.js"></script>
+    <script src="js/theme.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>
