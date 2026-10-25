@@ -1,6 +1,7 @@
 # Lumen
 
-A Notion-inspired workspace: **vanilla HTML/CSS/JavaScript on the front end, Express + Mongoose on the back end.** No frameworks, no bundler, no build step. One Node process serves both the JSON API and the static frontend, so everything runs on a single port.
+A Notion-inspired workspace: **React 18 + Vite on the front end, Express + Mongoose on the back end.**
+The API and the production build run from one Node process and one port.
 
 ## Requirements
 
@@ -10,7 +11,7 @@ A Notion-inspired workspace: **vanilla HTML/CSS/JavaScript on the front end, Exp
 ## Setup
 
 ```bash
-npm run setup                        # installs backend dependencies
+npm run setup                        # installs backend and frontend dependencies
 cp backend/.env.example backend/.env # then edit it
 ```
 
@@ -21,24 +22,37 @@ cp backend/.env.example backend/.env # then edit it
 | `MONGODB_URI`      | MongoDB connection string                           |
 | `JWT_SECRET`       | Signing key for session tokens                      |
 | `JWT_EXPIRES_IN`   | Token lifetime, e.g. `7d`                           |
-| `PORT`             | Port for both the API and the static frontend (default `4000`) |
+| `PORT`             | Port for both the API and the built frontend (default `4000`) |
 | `CORS_ORIGIN`      | Allowed origin if the frontend is served separately |
 | `LOG_REQUESTS`     | Set to log every request                            |
 
 ## Run
 
+Build the frontend, then start the Express server that serves it:
+
 ```bash
+npm run build     # Vite production build -> frontend/dist
 npm run dev       # node --watch server.js, via backend/
 ```
 
-Then open the URL printed on startup, `http://localhost:4000` by default. The
-API lives under `/api`, and the app itself is served from the repository root,
-so same-origin requests need no CORS setup. On boot the server asserts the six
-collection names and refuses to start if they have drifted.
+Then open `http://localhost:4000`. The API lives under `/api`; the app itself is
+served from `frontend/dist`, so same-origin requests need no CORS setup. On boot
+the server asserts the six collection names and refuses to start if they have
+drifted.
 
-The root scripts just forward to `backend/`; you can also run them from in there.
+For frontend work with hot module replacement, run these in two terminals:
 
 ```bash
+npm run dev            # API on :4000
+npm run dev:frontend   # Vite on :5173, proxying /api to :4000
+```
+
+Open `http://localhost:5173` while using the Vite dev server.
+
+Other root commands forward to the relevant package:
+
+```bash
+npm run start     # production start (no file watching)
 npm run smoke     # end-to-end API smoke test
 ```
 
@@ -77,28 +91,53 @@ Two shapes are worth knowing:
 ## Architecture
 
 ```
-index.html            App shell: landing, auth, workspace, overlay roots
-css/
-  style.css           Design tokens, landing, shared components
-  sidebar.css         Sidebar tree, favorites, drag & drop
-  editor.css          Blocks, slash menu, format toolbar
-  database.css        Table / board / calendar / roadmap views
-  responsive.css      1100/1000/720/420px breakpoints
-js/
-  data.js             App metadata, settings defaults, templates
-  api.js              The only module that knows about HTTP
-  ui.js               Icons, toasts, modals, confirm dialogs, menus
-  store.js            State, optimistic writes, lazy block loading, search
-  auth.js             Register / login / session validation
-  database.js         The four database views over one dataTable document
-  blockRenderer.js    Block type -> content element
-  editor.js           Page header, block editing, slash menu, toolbar
-  sidebar.js          Page tree, workspace switcher, context menus
-  search.js           Global search modal
-  theme.js            Light / dark / system
-  app.js              Boot, routing, topbar, views, command palette
+frontend/
+  index.html          Vite entry document
+  vite.config.js      React plugin, /api proxy for the dev server
+  public/assets/      Icons and illustration
+  src/
+    main.jsx          React root
+    hooks.js          useStore / app context hooks
+    appContext.js     Navigation and editor actions shared by components
+    components/       Every React component lives here, grouped by feature
+      App.jsx         Shell, routing, boot, shortcuts, global overlays
+      menus.jsx       App-level menu and modal builders
+      auth/Auth.jsx   Landing, login, register
+      common/PageCard.jsx
+                      Shared page/favorite card and empty state
+      layout/
+        Sidebar.jsx   Page tree, favorites, workspace switcher, drag/drop
+        Topbar.jsx    Breadcrumbs, page actions, search trigger
+        MobileNav.jsx Bottom navigation below 720px
+      ui/
+        index.jsx     Public UI toolkit exports
+        Icon.jsx      Inline SVG icon set
+        Toast.jsx     Toast renderer
+        Menu.jsx      Context menus and submenus
+        Modal.jsx     Dialogs, confirm flow and modal layer
+        helpers.js    Formatting, platform and clipboard helpers
+      editor/Editor.jsx
+                      Page header, block editing, slash menu, toolbar
+      database/Database.jsx
+                      Table / board / calendar / roadmap views
+      overlays/
+        SearchModal.jsx Global search dialog
+        CommandPalette.jsx Command palette
+      views/          Dashboard, Activity, Favorites, Templates, Search,
+                      Trash, Settings, PageView
+    core/
+      api.js          The only module that knows about HTTP
+      auth.js         Register / login / session validation
+      store.js        State, optimistic writes, lazy blocks, search
+      externalStore.js
+                      Framework-agnostic store primitive
+      toast.js        Toast queue shared by the store and renderer
+      theme.js        Light / dark / system
+      data.js         App metadata, settings defaults, templates
+      blockTypes.js   Slash-menu vocabulary
+    styles/           The original design tokens and component styles
 backend/
-  app.js              Express app: /api + static frontend
+  app.js              Express app: /api + frontend/dist + SPA fallback
   server.js           Process entry point (connects to Mongo, then listens)
   config/             db.js (connection), constants.js
   controllers/        HTTP layer: parse, delegate, respond
@@ -112,13 +151,17 @@ backend/
 
 ### Frontend conventions
 
-- Modules attach to `window.Lumen` and **must load in the order declared in
-  `index.html`**, because each one reads the modules above it off `window.Lumen`
-  while it is being evaluated. `index.html` documents that order inline.
-- `js/api.js` is the only place that knows about HTTP. It unwraps the
+- React views are mounted by `components/App.jsx`; every component lives under
+  `components/`, grouped by feature. The CSS contracts (`#sidebar`, `.modal-root`,
+  `.menu-root`, `.slash-menu`, `.format-toolbar`, `.toast-root`) are unchanged, so
+  the existing styles and responsive breakpoints still apply.
+- `core/api.js` is the only place that knows about HTTP. It unwraps the
   `{ success, data }` envelope, attaches the bearer token, and turns a `401`
   into a single `lumen:unauthorized` event so the app drops the session exactly
   once instead of reacting per request.
+- `core/store.js` is framework-agnostic state plus optimistic writes. React reads
+  it through `useSyncExternalStore`; the store mutates its cache in place and
+  bumps a version counter to notify subscribers.
 - The store applies mutations to its local cache first and flushes the network
   write afterwards, debounced per page. That is what keeps typing responsive.
   A block's creation `POST` is always awaited before a `PATCH` for the same

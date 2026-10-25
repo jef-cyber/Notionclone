@@ -1,8 +1,8 @@
 /**
  * Express app.
  *
- * Serves both the JSON API under /api and the static vanilla frontend from the
- * repository root, so one process on one port runs the whole app.
+ * Serves both the JSON API under /api and the built React frontend from
+ * frontend/dist, so one process on one port runs the whole app.
  */
 const path = require("path");
 const express = require("express");
@@ -45,7 +45,7 @@ if (String(process.env.LOG_REQUESTS).toLowerCase() === "true") {
 app.use("/api", routes);
 
 /* ---------- static frontend ---------- */
-const frontendRoot = path.join(__dirname, "..");
+const frontendRoot = path.join(__dirname, "..", "frontend", "dist");
 app.use(
   express.static(frontendRoot, {
     index: "index.html",

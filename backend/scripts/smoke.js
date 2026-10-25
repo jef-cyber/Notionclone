@@ -56,7 +56,7 @@ async function call(method, path, { token, body } = {}) {
 }
 
 async function run() {
-  const email = `smoke-${crypto.randomBytes(6).toString("hex")}@lumen.test`;
+  const email = `smoke-${crypto.randomBytes(6).toString("hex")}@Notion.test`;
   const password = "smoke-password-123";
 
   let token = null;
@@ -102,7 +102,7 @@ async function run() {
     check("duplicate email -> 409", dup.status === 409, dup.text);
 
     const shortPw = await call("POST", "/api/auth/register", {
-      body: { name: "x", email: `x-${Date.now()}@lumen.test`, password: "short" },
+      body: { name: "x", email: `x-${Date.now()}@Notion.test`, password: "short" },
     });
     check("short password -> 400", shortPw.status === 400, shortPw.text);
 
@@ -401,7 +401,7 @@ async function run() {
     const other = await call("POST", "/api/auth/register", {
       body: {
         name: "Other User",
-        email: `other-${crypto.randomBytes(6).toString("hex")}@lumen.test`,
+        email: `other-${crypto.randomBytes(6).toString("hex")}@Notion.test`,
         password,
       },
     });

@@ -20,7 +20,7 @@ async function start() {
   }
 
   const server = app.listen(PORT, () => {
-    console.log(`[server] Lumen API + frontend on http://localhost:${PORT}`);
+    console.log(`[server] Notion API + frontend on http://localhost:${PORT}`);
   });
 
   const shutdown = async (signal) => {

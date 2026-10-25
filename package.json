@@ -2,10 +2,12 @@
   "name": "lumen",
   "version": "1.0.0",
   "private": true,
-  "description": "Lumen — a Notion-style workspace. Vanilla HTML/CSS/JS frontend, Express + MongoDB backend.",
+  "description": "Lumen - a Notion-style workspace. React frontend, Express + MongoDB backend.",
   "scripts": {
-    "setup": "npm --prefix backend install",
+    "setup": "npm --prefix backend install && npm --prefix frontend install",
     "dev": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
     "start": "npm --prefix backend start",
     "smoke": "npm --prefix backend run smoke"
   }

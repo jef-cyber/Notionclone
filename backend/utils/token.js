@@ -7,7 +7,7 @@
 const jwt = require("jsonwebtoken");
 const ApiError = require("./ApiError");
 
-const DEV_FALLBACK_SECRET = "lumen-insecure-dev-secret-do-not-use-in-production";
+const DEV_FALLBACK_SECRET = "Notion-insecure-dev-secret-do-not-use-in-production";
 
 function getSecret() {
   const secret = process.env.JWT_SECRET;

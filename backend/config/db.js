@@ -12,7 +12,7 @@ mongoose.set("strictQuery", true);
 let connection = null;
 
 async function connect(uri) {
-  const target = uri || process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/lumen";
+  const target = uri || process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/Notion";
 
   if (!target) {
     throw new Error(

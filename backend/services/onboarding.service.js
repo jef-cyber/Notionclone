@@ -11,7 +11,7 @@ const PAGE = {
   title: "Getting Started",
   icon: "\uD83D\uDCDD",
   blocks: [
-    { type: "paragraph", content: { text: "Welcome to Lumen. This page is yours \u2014 edit it, delete it, or ignore it." } },
+    { type: "paragraph", content: { text: "Welcome to Notion. This page is yours \u2014 edit it, delete it, or ignore it." } },
     { type: "heading2", content: { text: "Try these" } },
     { type: "todo", content: { text: "Click a line and start typing", properties: { checked: false } } },
     { type: "todo", content: { text: "Type / in an empty block to insert a heading, list, quote, code, or a database", properties: { checked: false } } },
