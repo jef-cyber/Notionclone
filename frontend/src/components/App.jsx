@@ -1,4 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 
 import { useStore } from "../hooks.js";
 import { store } from "../core/store.js";
@@ -27,62 +35,27 @@ import Favorites from "./views/Favorites.jsx";
 import SearchPage from "./views/SearchPage.jsx";
 import Trash from "./views/Trash.jsx";
 import PageView from "./views/PageView.jsx";
+import NotFound from "./views/NotFound.jsx";
 import SearchModal from "./overlays/SearchModal.jsx";
 import CommandPalette from "./overlays/CommandPalette.jsx";
+import {
+  AUTH_PATHS,
+  VIEW_PATHS,
+  legacyHashTarget,
+  matchAppPath,
+  pagePath,
+  pathForView,
+  safeInternalPath,
+} from "../routing.js";
 
-/* ---------- routing ---------- */
-function parseHash() {
-  const h = (window.location.hash || "").replace(/^#/, "");
-  if (h.indexOf("page/") === 0) return { route: "page", id: h.slice(5) };
-  const map = {
-    login: "login",
-    register: "register",
-    search: "search",
-    trash: "trash",
-    settings: "settings",
-    templates: "templates",
-    favorites: "favorites",
-    inbox: "inbox",
-  };
-  return { route: map[h] || "dashboard" };
-}
-
-function setHash(h) {
-  const next = h || "";
-  if (window.location.hash === next) return;
-  if (next) window.location.hash = next;
-  else {
-    try {
-      history.replaceState(null, "", window.location.pathname + window.location.search);
-    } catch (e) {
-      /* ignore */
-    }
-  }
-}
-
-function clearHash() {
-  if (!window.location.hash) return;
-  try {
-    history.replaceState(null, "", window.location.pathname + window.location.search);
-  } catch (e) {
-    /* ignore */
-  }
-}
-
-const HASH_FOR_VIEW = {
-  dashboard: "",
-  inbox: "#inbox",
-  settings: "#settings",
-  templates: "#templates",
-  favorites: "#favorites",
-  trash: "#trash",
-  search: "#search",
-};
+/* React Router owns the URL. The store mirrors the active view so the
+   sidebar, breadcrumbs and mobile nav do not need a second router. */
 
 export default function App() {
   const state = useStore();
+  const location = useLocation();
+  const reactNavigate = useNavigate();
   const [booted, setBooted] = useState(false);
-  const [authMode, setAuthMode] = useState("landing");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -90,49 +63,51 @@ export default function App() {
   const contentRef = useRef(null);
   const bootRef = useRef(false);
 
-  const isLoggedIn = () => !!api.getToken();
+  const loggedIn = !!state.loggedIn && !!api.getToken();
+  const route = matchAppPath(location.pathname);
 
-  const navigate = useCallback((view) => {
-    if (!isLoggedIn()) {
-      setAuthMode("login");
-      setHash("#login");
-      return;
-    }
-    store.setView(view);
-    setMobileSidebarOpen(false);
-    setHash(HASH_FOR_VIEW[view] || "");
-  }, []);
+  const navigate = useCallback(
+    (view) => {
+      if (!Object.prototype.hasOwnProperty.call(VIEW_PATHS, view)) return;
+      const target = pathForView(view);
+      setMobileSidebarOpen(false);
+      if (!api.getToken()) {
+        reactNavigate(AUTH_PATHS.login, {
+          replace: true,
+          state: { from: target },
+        });
+        return;
+      }
+      store.setView(view);
+      reactNavigate(target);
+    },
+    [reactNavigate]
+  );
 
-  const openPage = useCallback(async (id) => {
-    const page = store.getPage(id);
-    if (!page) {
-      // A deep link can name a page this workspace doesn't have.
-      store.getState().view = "page";
-      store.getState().currentPageId = id;
-      store.commit("nav");
-      setHash("#page/" + id);
-      return;
-    }
-    if (page.isArchived) {
-      showToast("This page is in the trash", "info");
-      navigate("trash");
-      return;
-    }
-
-    store.flushPage(store.getState().currentPageId);
-    const target = await store.hydratePage(id);
-    if (!target) {
-      store.refreshPages();
-      store.getState().view = "page";
-      store.getState().currentPageId = id;
-      store.commit("nav");
-      return;
-    }
-
-    store.navigate(id);
-    setMobileSidebarOpen(false);
-    setHash("#page/" + id);
-  }, [navigate]);
+  const openPage = useCallback(
+    (id) => {
+      if (!id) return;
+      const target = pagePath(id);
+      setMobileSidebarOpen(false);
+      if (!api.getToken()) {
+        reactNavigate(AUTH_PATHS.login, {
+          replace: true,
+          state: { from: target },
+        });
+        return;
+      }
+      const page = store.getPage(id);
+      if (page && page.isArchived) {
+        showToast("This page is in the trash", "info");
+        navigate("trash");
+        return;
+      }
+      if (window.location.pathname !== target) {
+        reactNavigate(target);
+      }
+    },
+    [navigate, reactNavigate]
+  );
 
   const createNewPage = useCallback(async () => {
     try {
@@ -144,50 +119,26 @@ export default function App() {
     }
   }, [openPage]);
 
-  const routeFromHash = useCallback(() => {
-    const parsed = parseHash();
-    if (!isLoggedIn()) {
-      if (parsed.route === "login") {
-        setAuthMode("login");
-      } else if (parsed.route === "register") {
-        setAuthMode("register");
-      } else {
-        setAuthMode("landing");
-        clearHash();
-      }
-      return;
-    }
-
-    if (parsed.route === "login" || parsed.route === "register") {
-      clearHash();
-      navigate("dashboard");
-      return;
-    }
-
-    if (parsed.route === "page") {
-      const page = store.getPage(parsed.id);
-      if (!page) {
-        store.getState().view = "page";
-        store.getState().currentPageId = parsed.id;
-        store.commit("nav");
-        return;
-      }
-      const current = store.getState();
-      if (current.view === "page" && current.currentPageId === page.id && page.blocksLoaded) return;
-      openPage(page.id);
-      return;
-    }
-
-    if (parsed.route !== store.getState().view) store.setView(parsed.route);
-    setAuthMode("workspace");
-  }, [navigate, openPage]);
-
-  const authenticate = useCallback(async (result, isLogin) => {
-    store.adoptSession(result);
-    await store.refreshPages();
-    showToast(isLogin ? "Welcome back" : "Account created — welcome to Lumen!", "success");
-    navigate("dashboard");
-  }, [navigate]);
+  const authenticate = useCallback(
+    async (result, isLogin) => {
+      store.adoptSession(result);
+      await store.refreshPages();
+      showToast(
+        isLogin ? "Welcome back" : "Account created — welcome to Lumen!",
+        "success"
+      );
+      const requested = safeInternalPath(
+        location.state && location.state.from,
+        VIEW_PATHS.dashboard
+      );
+      const destination =
+        requested === AUTH_PATHS.login || requested === AUTH_PATHS.register
+          ? VIEW_PATHS.dashboard
+          : requested;
+      reactNavigate(destination, { replace: true });
+    },
+    [location.state, reactNavigate]
+  );
 
   const logout = useCallback(() => {
     store.flushAll();
@@ -195,33 +146,36 @@ export default function App() {
       store.clearSession();
       closeMenus();
       closeModal();
-      clearHash();
-      setAuthMode("landing");
       setMobileSidebarOpen(false);
+      reactNavigate(VIEW_PATHS.dashboard, { replace: true });
     });
-  }, []);
+  }, [reactNavigate]);
 
   const showLogin = useCallback(() => {
-    if (isLoggedIn()) {
-      setAuthMode("workspace");
+    if (api.getToken()) {
+      reactNavigate(VIEW_PATHS.dashboard, { replace: true });
       return;
     }
     closeMenus();
     closeModal();
-    setAuthMode("login");
-    setHash("#login");
-  }, []);
+    const from = location.pathname + location.search;
+    reactNavigate(AUTH_PATHS.login, {
+      state: { from: from === AUTH_PATHS.register ? VIEW_PATHS.dashboard : from },
+    });
+  }, [location.pathname, location.search, reactNavigate]);
 
   const showRegister = useCallback(() => {
-    if (isLoggedIn()) {
-      setAuthMode("workspace");
+    if (api.getToken()) {
+      reactNavigate(VIEW_PATHS.dashboard, { replace: true });
       return;
     }
     closeMenus();
     closeModal();
-    setAuthMode("register");
-    setHash("#register");
-  }, []);
+    const from = location.pathname + location.search;
+    reactNavigate(AUTH_PATHS.register, {
+      state: { from: from === AUTH_PATHS.login ? VIEW_PATHS.dashboard : from },
+    });
+  }, [location.pathname, location.search, reactNavigate]);
 
   const toggleSidebar = useCallback(() => {
     if (window.matchMedia("(max-width: 720px)").matches) {
@@ -234,40 +188,50 @@ export default function App() {
     }
   }, []);
 
-  const openProfileMenu = useCallback((x, y) => {
-    showProfileMenu(store.getState(), x, y, { navigate, logout });
-  }, [navigate, logout]);
+  const openProfileMenu = useCallback(
+    (x, y) => {
+      showProfileMenu(store.getState(), x, y, { navigate, logout });
+    },
+    [navigate, logout]
+  );
 
   const triggerImport = useCallback(() => {
     if (importRef.current) importRef.current.click();
   }, []);
 
-  const onImportFile = useCallback(async (event) => {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const text = String(reader.result || "");
-      const blocks = text
-        .split(/\r?\n/)
-        .filter((line) => line.trim().length)
-        .map((line) => ({ type: "text", content: line }));
-      const name = file.name.replace(/\.[^/.]+$/, "") || "Imported";
-      try {
-        const page = await store.createPage({ title: name, icon: "\uD83D\uDCC1", blocks });
-        showToast('Imported "' + name + '"', "success");
-        openPage(page.id);
-      } catch (err) {
-        showToast(err.message, "error");
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = "";
-  }, [openPage]);
+  const onImportFile = useCallback(
+    async (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const text = String(reader.result || "");
+        const blocks = text
+          .split(/\r?\n/)
+          .filter((line) => line.trim().length)
+          .map((line) => ({ type: "text", content: line }));
+        const name = file.name.replace(/\.[^/.]+$/, "") || "Imported";
+        try {
+          const page = await store.createPage({
+            title: name,
+            icon: "\uD83D\uDCC1",
+            blocks,
+          });
+          showToast('Imported "' + name + '"', "success");
+          openPage(page.id);
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    },
+    [openPage]
+  );
 
-  /* Boot session and route. */
+  /* Boot the session once. Router-backed effects below resolve the URL. */
   useEffect(() => {
-    if (bootRef.current) return;
+    if (bootRef.current) return undefined;
     bootRef.current = true;
     let cancelled = false;
     theme.apply();
@@ -275,20 +239,78 @@ export default function App() {
       await store.loadSession();
       if (cancelled) return;
       setBooted(true);
-      routeFromHash();
     })();
     return () => {
       cancelled = true;
     };
-  }, [routeFromHash]);
+  }, []);
 
-  /* Hash routing. */
+  /* Translate URL changes from links, back/forward and deep links into store
+     state. Page hydration is owned by PageView so this effect stays sync. */
+  useEffect(() => {
+    if (!booted || !loggedIn) return undefined;
+
+    if (route.kind === "auth") {
+      reactNavigate(VIEW_PATHS.dashboard, { replace: true });
+      return undefined;
+    }
+
+    if (route.kind === "redirect") {
+      reactNavigate(route.to, { replace: true });
+      return undefined;
+    }
+
+    if (route.kind === "not-found") {
+      if (store.getState().view !== "notfound") store.setView("notfound");
+      return undefined;
+    }
+
+    if (route.kind === "page") {
+      const pageId = route.pageId;
+      const page = store.getPage(pageId);
+      if (!page) {
+        store.setPageView(pageId);
+        return undefined;
+      }
+      if (page.isArchived) {
+        showToast("This page is in the trash", "info");
+        reactNavigate(VIEW_PATHS.trash, { replace: true });
+        return undefined;
+      }
+      const current = store.getState();
+      if (current.view !== "page" || current.currentPageId !== pageId) {
+        if (current.currentPageId) store.flushPage(current.currentPageId);
+        store.navigate(pageId);
+      }
+      return undefined;
+    }
+
+    if (store.getState().view !== route.view) store.setView(route.view);
+    return undefined;
+  }, [
+    booted,
+    loggedIn,
+    route.kind,
+    route.pageId,
+    route.to,
+    route.view,
+    reactNavigate,
+  ]);
+
+  /* Old share links used #page/:id and #settings. Convert them once without a
+     full reload so existing bookmarks keep working. */
   useEffect(() => {
     if (!booted) return undefined;
-    const onHashChange = () => routeFromHash();
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, [booted, routeFromHash]);
+    const convert = () => {
+      const target = legacyHashTarget(window.location.hash);
+      if (!target) return;
+      const next = safeInternalPath(target, VIEW_PATHS.dashboard);
+      reactNavigate(next, { replace: true });
+    };
+    convert();
+    window.addEventListener("hashchange", convert);
+    return () => window.removeEventListener("hashchange", convert);
+  }, [booted, reactNavigate]);
 
   /* Session expiry from any API request. */
   useEffect(() => {
@@ -296,13 +318,12 @@ export default function App() {
       store.clearSession();
       closeMenus();
       closeModal();
-      clearHash();
-      setAuthMode("landing");
       setMobileSidebarOpen(false);
+      reactNavigate(VIEW_PATHS.dashboard, { replace: true });
     };
     window.addEventListener("lumen:unauthorized", onUnauthorized);
     return () => window.removeEventListener("lumen:unauthorized", onUnauthorized);
-  }, []);
+  }, [reactNavigate]);
 
   /* Preference classes and theme. */
   useEffect(() => {
@@ -317,26 +338,26 @@ export default function App() {
   /* Keep the content pane scrolled to the top when the destination changes. */
   useEffect(() => {
     if (contentRef.current) contentRef.current.scrollTop = 0;
-  }, [state.view, state.currentPageId]);
+  }, [location.pathname, state.currentPageId]);
 
   /* Global shortcuts. */
   useEffect(() => {
     const onKeyDown = (e) => {
       const mod = e.ctrlKey || e.metaKey;
-      const loggedIn = !!api.getToken();
+      const hasToken = !!api.getToken();
       if (mod && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        if (loggedIn) setSearchOpen(true);
+        if (hasToken) setSearchOpen(true);
         return;
       }
       if (mod && e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
-        if (loggedIn) setPaletteOpen(true);
+        if (hasToken) setPaletteOpen(true);
         return;
       }
       if (mod && !e.shiftKey && e.key.toLowerCase() === "n") {
         e.preventDefault();
-        if (loggedIn) createNewPage();
+        if (hasToken) createNewPage();
         return;
       }
       if (e.key === "Escape") {
@@ -349,7 +370,6 @@ export default function App() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [createNewPage]);
 
-  const loggedIn = !!state.loggedIn && !!api.getToken();
   const contextValue = {
     navigate,
     openPage,
@@ -364,51 +384,8 @@ export default function App() {
     authenticate,
   };
 
-  let shell = null;
-  if (!loggedIn) {
-    shell =
-      authMode === "login" || authMode === "register" ? (
-        <AuthView
-          key={authMode}
-          mode={authMode}
-          onSwitch={(next) => (next === "login" ? showLogin() : showRegister())}
-          onAuthenticated={authenticate}
-        />
-      ) : (
-        <Landing onLogin={showLogin} onSignup={showRegister} />
-      );
-  } else {
-    shell = (
-      <div className="workspace">
-        <Sidebar
-          mobileOpen={mobileSidebarOpen}
-          setMobileOpen={setMobileSidebarOpen}
-          openProfileMenu={openProfileMenu}
-          onLogout={logout}
-        />
-        <div
-          className="sidebar-overlay"
-          hidden={!mobileSidebarOpen}
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-        <div className="workspace-main">
-          <Topbar toggleSidebar={toggleSidebar} />
-          <main id="content" className="content" tabIndex="-1" ref={contentRef}>
-            {renderView(state, openPage)}
-          </main>
-          <MobileNav
-            state={state}
-            navigate={navigate}
-            createNewPage={createNewPage}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <AppContext.Provider value={contextValue}>
-      {shell}
+  const overlays = (
+    <>
       <MenuLayer />
       <ModalLayer />
       <ToastRoot />
@@ -433,20 +410,116 @@ export default function App() {
         openPage={openPage}
         triggerImport={triggerImport}
       />
+    </>
+  );
+
+  if (!booted) {
+    return (
+      <div className="boot-screen" role="status" aria-live="polite">
+        <img
+          className="boot-logo"
+          src="/assets/icons/logo.svg"
+          alt=""
+          aria-hidden="true"
+        />
+        <div className="boot-spinner" aria-hidden="true" />
+        <p className="boot-text">Loading your workspace…</p>
+      </div>
+    );
+  }
+
+  if (!loggedIn) {
+    const from = location.pathname + location.search;
+    return (
+      <AppContext.Provider value={contextValue}>
+        <Routes>
+          <Route
+            path={AUTH_PATHS.login}
+            element={
+              <AuthView
+                key="login"
+                mode="login"
+                onSwitch={showRegister}
+                onAuthenticated={authenticate}
+              />
+            }
+          />
+          <Route
+            path={AUTH_PATHS.register}
+            element={
+              <AuthView
+                key="register"
+                mode="register"
+                onSwitch={showLogin}
+                onAuthenticated={authenticate}
+              />
+            }
+          />
+          <Route
+            path={VIEW_PATHS.dashboard}
+            element={<Landing onLogin={showLogin} onSignup={showRegister} />}
+          />
+          <Route
+            path="*"
+            element={
+              <Navigate
+                to={AUTH_PATHS.login}
+                replace
+                state={{ from: safeInternalPath(from, VIEW_PATHS.dashboard) }}
+              />
+            }
+          />
+        </Routes>
+        {overlays}
+      </AppContext.Provider>
+    );
+  }
+
+  return (
+    <AppContext.Provider value={contextValue}>
+      <div className="workspace">
+        <Sidebar
+          mobileOpen={mobileSidebarOpen}
+          setMobileOpen={setMobileSidebarOpen}
+          openProfileMenu={openProfileMenu}
+          onLogout={logout}
+        />
+        <div
+          className="sidebar-overlay"
+          hidden={!mobileSidebarOpen}
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+        <div className="workspace-main">
+          <Topbar toggleSidebar={toggleSidebar} />
+          <main id="content" className="content" tabIndex="-1" ref={contentRef}>
+            <Routes>
+              <Route path={VIEW_PATHS.dashboard} element={<Dashboard />} />
+              <Route path={VIEW_PATHS.inbox} element={<Activity />} />
+              <Route path="/inbox" element={<Navigate to={VIEW_PATHS.inbox} replace />} />
+              <Route path={VIEW_PATHS.settings} element={<Settings />} />
+              <Route path={VIEW_PATHS.templates} element={<Templates />} />
+              <Route path={VIEW_PATHS.favorites} element={<Favorites />} />
+              <Route path={VIEW_PATHS.search} element={<SearchPage />} />
+              <Route path={VIEW_PATHS.trash} element={<Trash />} />
+              <Route path="/page/:pageId" element={<PageRoute openPage={openPage} />} />
+              <Route path={AUTH_PATHS.login} element={<Navigate to={VIEW_PATHS.dashboard} replace />} />
+              <Route path={AUTH_PATHS.register} element={<Navigate to={VIEW_PATHS.dashboard} replace />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
+          <MobileNav
+            state={state}
+            navigate={navigate}
+            createNewPage={createNewPage}
+          />
+        </div>
+      </div>
+      {overlays}
     </AppContext.Provider>
   );
 }
 
-function renderView(state, openPage) {
-  if (state.view === "page") {
-    return <PageView pageId={state.currentPageId} openPage={openPage} />;
-  }
-  if (state.view === "dashboard") return <Dashboard />;
-  if (state.view === "inbox") return <Activity />;
-  if (state.view === "settings") return <Settings />;
-  if (state.view === "templates") return <Templates />;
-  if (state.view === "favorites") return <Favorites />;
-  if (state.view === "search") return <SearchPage />;
-  if (state.view === "trash") return <Trash />;
-  return <Dashboard />;
+function PageRoute({ openPage }) {
+  const { pageId } = useParams();
+  return <PageView pageId={pageId} openPage={openPage} />;
 }

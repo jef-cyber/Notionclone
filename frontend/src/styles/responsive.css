@@ -168,6 +168,44 @@
     gap: 8px;
   }
 
+  /* View headers and forms */
+  .view-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .view-header-action {
+    align-self: flex-start;
+  }
+  .settings-form .btn,
+  .settings-form .avatar-edit {
+    width: 100%;
+  }
+  .member-invite {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .member-invite .btn,
+  .member-invite .select,
+  .member-invite input {
+    width: 100%;
+  }
+  .invite-error {
+    margin-top: 6px;
+  }
+
+  /* Trash rows stack their actions under the title */
+  .trash-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .trash-item-body {
+    flex: 1 1 calc(100% - 48px);
+  }
+  .trash-item-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
   /* Modals */
   .modal {
     width: calc(100vw - 24px);
@@ -192,6 +230,12 @@
 @media (max-width: 420px) {
   .card-grid {
     grid-template-columns: 1fr;
+  }
+  .view-title {
+    font-size: 24px;
+  }
+  .trash-item-actions .btn {
+    flex: 1;
   }
   .quick-action {
     width: 100%;

@@ -304,6 +304,7 @@
   top: 6px;
   right: 8px;
   padding: 1px 6px;
+  border: 0;
   border-radius: 3px;
   background: var(--bg-hover);
   color: var(--text-muted);
@@ -316,6 +317,9 @@
   transition: opacity 0.12s ease;
 }
 .block-code-wrap:hover .block-code-lang {
+  opacity: 1;
+}
+.block-code-lang:focus-visible {
   opacity: 1;
 }
 .block-code-wrap .block-code {

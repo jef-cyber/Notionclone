@@ -21,6 +21,17 @@ const { Schema, model } = require("mongoose");
 /** A row is an open map so any declared property can be stored on it. */
 const rowSchema = new Schema({}, { strict: false, _id: false });
 
+/** A persisted finish-to-start (or other) task dependency. */
+const dependencySchema = new Schema(
+  {
+    id: { type: String, required: true },
+    from: { type: String, required: true },
+    to: { type: String, required: true },
+    type: { type: String, default: "finish-to-start" },
+  },
+  { _id: false }
+);
+
 const dataTableSchema = new Schema(
   {
     workspaceId: {
@@ -54,17 +65,23 @@ const dataTableSchema = new Schema(
       default: () => ({}),
     },
     /**
-     * Which view is shown by default: "table" | "board" | "calendar" | "roadmap"
+     * Which view is shown by default. "roadmap" is kept as a legacy alias for
+     * "timeline" so databases created before the timeline upgrade keep opening.
      */
     defaultView: {
       type: String,
-      enum: ["table", "board", "calendar", "roadmap"],
+      enum: ["table", "board", "list", "gallery", "calendar", "timeline", "roadmap"],
       default: "table",
     },
-    /** Per-view configuration (group-by column, timeline start/end columns...). */
+    /** Per-view configuration (group-by column, timeline zoom/anchor...). */
     viewConfig: {
       type: Schema.Types.Mixed,
       default: () => ({}),
+    },
+    /** [{ id, from: "row_a", to: "row_b", type: "finish-to-start" }] */
+    dependencies: {
+      type: [dependencySchema],
+      default: () => [],
     },
     /** [{ id: "row_1", Task: "Ship auth", Status: "Done" }] */
     rows: {

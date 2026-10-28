@@ -14,18 +14,45 @@ import {
   Icon,
   showToast,
 } from "../ui/index.jsx";
+import {
+  cellText,
+  columns,
+  columnOfType,
+  dayKey,
+  dependencyDescription,
+  dependencyExists,
+  dependencyScheduleError,
+  dependencyTypeOf,
+  DEPENDENCY_TYPES,
+  endDateColumn,
+  groupColumn,
+  makeDependency,
+  MONTHS,
+  optionsFor,
+  PROPERTY_TYPE_LABELS,
+  rowDates,
+  startDateColumn,
+  statusColor,
+  statusColumnOf,
+  titleColumn,
+  toDate,
+  wouldCreateCycle,
+} from "./databaseUtils.js";
+import TimelineView from "./TimelineView.jsx";
 
 const VIEWS = [
   { id: "table", label: "Table" },
   { id: "board", label: "Board" },
+  { id: "list", label: "List" },
+  { id: "gallery", label: "Gallery" },
   { id: "calendar", label: "Calendar" },
-  { id: "roadmap", label: "Roadmap" },
+  { id: "timeline", label: "Timeline" },
 ];
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
+/* Legacy databases persisted "roadmap". The timeline is the same view. */
+function normalizedView(id) {
+  return id === "roadmap" ? "timeline" : id;
+}
 
 /* Re-mounting the editor re-mounts every database block, so the cache keeps
    that from becoming one GET per table per render. */
@@ -45,108 +72,6 @@ function invalidate(id) {
   if (id) cache.delete(id);
   else cache.clear();
 }
-
-/* ---------- column helpers ---------- */
-function columns(dataTable) {
-  return Object.keys(dataTable.properties || {});
-}
-
-function titleColumn(dataTable) {
-  const props = dataTable.properties || {};
-  const found = columns(dataTable).find((c) => props[c].type === "title");
-  return found || columns(dataTable)[0] || "Name";
-}
-
-function columnOfType(dataTable, type) {
-  const props = dataTable.properties || {};
-  return columns(dataTable).find((c) => props[c].type === type) || null;
-}
-
-function groupColumn(dataTable) {
-  const props = dataTable.properties || {};
-  const names = columns(dataTable);
-  const named = names.find(
-    (c) => props[c].type === "select" && /status|stage|state/i.test(c)
-  );
-  return named || columnOfType(dataTable, "select") || titleColumn(dataTable);
-}
-
-function optionsFor(dataTable, column) {
-  const spec = (dataTable.properties || {})[column];
-  if (spec && Array.isArray(spec.options) && spec.options.length) {
-    return spec.options;
-  }
-  const seen = [];
-  (dataTable.rows || []).forEach((row) => {
-    const value = row[column];
-    if (value && seen.indexOf(value) === -1) seen.push(value);
-  });
-  return seen.length ? seen : ["None"];
-}
-
-function toDate(value) {
-  if (!value) return null;
-  const d = new Date(value);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-/** yyyy-mm-dd in local time (toISOString would shift the day). */
-function dayKey(date) {
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return date.getFullYear() + "-" + m + "-" + d;
-}
-
-function cellText(value) {
-  if (value === null || value === undefined || value === "") return "";
-  if (Array.isArray(value)) return value.join(", ");
-  if (value instanceof Date) return dayKey(value);
-  return String(value);
-}
-
-/* ---------- status colours ---------- */
-const STATUS_COLORS = ["", "blue", "green", "yellow", "red", "purple", "pink", "orange", "gray"];
-
-const STATUS_KEYWORDS = [
-  { re: /done|complete|shipped|finished|closed|resolved|success/i, color: "green" },
-  { re: /in.?progress|doing|active|started|ongoing|current|review/i, color: "yellow" },
-  { re: /todo|to.?do|backlog|not.?started|pending|open|new|plan/i, color: "gray" },
-  { re: /block|stuck|hold|paused|fail|error|cancel|reject|overdue|urgent|critical/i, color: "red" },
-  { re: /high|important/i, color: "orange" },
-  { re: /medium|normal/i, color: "blue" },
-  { re: /low|minor/i, color: "purple" },
-];
-
-function statusColor(value) {
-  const v = cellText(value).trim();
-  if (!v) return "";
-  for (let i = 0; i < STATUS_KEYWORDS.length; i += 1) {
-    if (STATUS_KEYWORDS[i].re.test(v)) return STATUS_KEYWORDS[i].color;
-  }
-  let hash = 0;
-  for (let i = 0; i < v.length; i += 1) hash = (hash * 31 + v.charCodeAt(i)) >>> 0;
-  return STATUS_COLORS[(hash % (STATUS_COLORS.length - 1)) + 1];
-}
-
-function statusColumnOf(dataTable) {
-  const props = dataTable.properties || {};
-  return columns(dataTable).find((c) => (props[c] || {}).type === "select") || null;
-}
-
-/* ---------- settings labels ---------- */
-const PROPERTY_TYPE_LABELS = {
-  title: "Title",
-  text: "Text",
-  number: "Number",
-  select: "Select",
-  multi_select: "Multi-select",
-  checkbox: "Checkbox",
-  date: "Date",
-  url: "URL",
-  email: "Email",
-  person: "Person",
-  relation: "Relation",
-};
 
 /* ---------- cell ---------- */
 function Cell({ dataTable, row, column, setCell }) {
@@ -234,9 +159,20 @@ function Cell({ dataTable, row, column, setCell }) {
 }
 
 /* ---------- database ---------- */
+let localRowSeq = 0;
+function localRowId() {
+  localRowSeq += 1;
+  return `row_local_${Date.now().toString(36)}_${localRowSeq}`;
+}
+
 export default function Database({ block, pageId }) {
-  const [, bump] = useReducer((v) => v + 1, 0);
+  const [revision, bump] = useReducer((v) => v + 1, 0);
   const dtRef = useRef(null);
+  const rowWrites = useRef(new Map());
+  const pendingRows = useRef(new Map());
+  const configWrites = useRef(Promise.resolve());
+  const dependencyWrites = useRef(Promise.resolve());
+  const savedDependencies = useRef([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [view, setView] = useState("table");
@@ -272,8 +208,10 @@ export default function Database({ block, pageId }) {
       .then((dt) => {
         if (cancelled) return;
         dtRef.current = dt;
+        savedDependencies.current = dt.dependencies || [];
         cache.set(dt._id, { dt, at: Date.now() });
-        setView(VIEWS.some((v) => v.id === dt.defaultView) ? dt.defaultView : "table");
+        const initial = normalizedView(dt.defaultView);
+        setView(VIEWS.some((v) => v.id === initial) ? initial : "table");
         setReady(true);
       })
       .catch((err) => {
@@ -287,23 +225,107 @@ export default function Database({ block, pageId }) {
     };
   }, [pageId, block.id]);
 
-  /* ---------- row writes ---------- */
-  const setCell = (id, column, value) => {
+  /* ---------- row writes ----------
+     All writes for one row go through a queue. Two quick edits therefore reach
+     the server in order instead of racing and overwriting each other. */
+  const queueRowWrite = (dtId, id, patch) => {
+    const key = String(id);
+    const previous = rowWrites.current.get(key) || Promise.resolve();
+    const next = previous
+      .catch(() => null)
+      .then(() => store.updateDataTableRow(dtId, id, patch));
+    rowWrites.current.set(key, next);
+    const done = () => {
+      if (rowWrites.current.get(key) === next) rowWrites.current.delete(key);
+    };
+    next.then(done, done);
+    return next;
+  };
+
+  const setCells = (id, patch) => {
     const dt = dtRef.current;
-    if (!dt) return;
-    const row = (dt.rows || []).find((r) => r.id === id);
-    if (!row) return;
-    row[column] = value; // optimistic
+    if (!dt) return Promise.resolve(null);
+    const row = (dt.rows || []).find((r) => String(r.id) === String(id));
+    if (!row) return Promise.resolve(null);
+
+    // Date edits can also arrive from the record dialog. Keep the same
+    // dependency rules as timeline drag/resize so no UI path can silently
+    // break a link while the server still stores a structurally valid edge.
+    const startCol = startDateColumn(dt);
+    const endCol = endDateColumn(dt, startCol);
+    const touchesDates =
+      (startCol && Object.prototype.hasOwnProperty.call(patch, startCol)) ||
+      (endCol && Object.prototype.hasOwnProperty.call(patch, endCol));
+    if (touchesDates && startCol && (dt.dependencies || []).length) {
+      const tempRow = { ...row, ...patch };
+      const nextRange = rowDates(dt, tempRow, startCol, endCol);
+      if (nextRange) {
+        for (let i = 0; i < dt.dependencies.length; i += 1) {
+          const dep = dt.dependencies[i];
+          if (
+            String(dep.from) !== String(row.id) &&
+            String(dep.to) !== String(row.id)
+          ) {
+            continue;
+          }
+          const source = (dt.rows || []).find(
+            (item) => String(item.id) === String(dep.from)
+          );
+          const target = (dt.rows || []).find(
+            (item) => String(item.id) === String(dep.to)
+          );
+          if (!source || !target) continue;
+          const sourceRange =
+            String(source.id) === String(row.id)
+              ? nextRange
+              : rowDates(dt, source, startCol, endCol);
+          const targetRange =
+            String(target.id) === String(row.id)
+              ? nextRange
+              : rowDates(dt, target, startCol, endCol);
+          const scheduleError = dependencyScheduleError(
+            dependencyTypeOf(dep),
+            sourceRange,
+            targetRange
+          );
+          if (scheduleError) {
+            showToast(scheduleError, "error");
+            return Promise.resolve(null);
+          }
+        }
+      }
+    }
+
+    const before = {};
+    Object.keys(patch).forEach((key) => {
+      before[key] = row[key];
+    });
+
+    Object.assign(row, patch); // optimistic
     bump();
-    store
-      .updateDataTableRow(dt._id, id, { [column]: value })
-      .then((saved) => Object.assign(row, saved))
+
+    const pending = pendingRows.current.get(String(id));
+    if (pending) {
+      // The row has not reached the server yet. Keep the edits and replay them
+      // after the POST returns the authoritative row id.
+      Object.assign(pending.edits, patch);
+      return Promise.resolve(row);
+    }
+
+    return queueRowWrite(dt._id, id, patch)
+      .then(() => row)
       .catch((err) => {
-        invalidate(dt._id);
-        showToast(err.message, "error");
+        // Only roll back values that have not been superseded by a newer edit.
+        Object.keys(patch).forEach((key) => {
+          if (row[key] === patch[key]) row[key] = before[key];
+        });
         bump();
+        showToast(err.message, "error");
+        return null;
       });
   };
+
+  const setCell = (id, column, value) => setCells(id, { [column]: value });
 
   const addRow = (extra) => {
     const dt = dtRef.current;
@@ -313,16 +335,48 @@ export default function Database({ block, pageId }) {
       const type = dt.properties[c].type;
       if (type === "checkbox" && values[c] === undefined) values[c] = false;
     });
+
+    // Show the record immediately. The temporary id is replaced as soon as the
+    // server responds; edits made in the meantime are replayed against the real
+    // id. This removes the POST round-trip from the user-visible interaction.
+    const tempId = localRowId();
+    const localRow = { id: tempId, ...values, __pending: true };
+    dt.rows.push(localRow);
+    const pending = { row: localRow, edits: {}, deleted: false };
+    pendingRows.current.set(tempId, pending);
+    cache.set(dt._id, { dt, at: Date.now() });
+    bump();
+
     return store
       .addDataTableRow(dt._id, values)
-      .then((row) => {
-        dt.rows.push(row);
+      .then((saved) => {
+        pendingRows.current.delete(tempId);
+        if (pending.deleted) {
+          store.deleteDataTableRow(dt._id, saved.id).catch((err) => {
+            showToast(err.message, "error");
+          });
+          return null;
+        }
+
+        const merged = { ...saved, ...pending.edits };
+        const index = dt.rows.findIndex((r) => String(r.id) === String(tempId));
+        if (index === -1) dt.rows.push(merged);
+        else dt.rows[index] = merged;
+
+        if (Object.keys(pending.edits).length) {
+          queueRowWrite(dt._id, saved.id, pending.edits).catch((err) => {
+            showToast(err.message, "error");
+          });
+        }
+
         cache.set(dt._id, { dt, at: Date.now() });
         bump();
-        return row;
+        return merged;
       })
       .catch((err) => {
-        invalidate(dt._id);
+        pendingRows.current.delete(tempId);
+        dt.rows = dt.rows.filter((r) => String(r.id) !== String(tempId));
+        bump();
         showToast(err.message, "error");
         return null;
       });
@@ -331,13 +385,46 @@ export default function Database({ block, pageId }) {
   const deleteRow = (id) => {
     const dt = dtRef.current;
     if (!dt) return;
-    dt.rows = dt.rows.filter((r) => r.id !== id);
+    const index = (dt.rows || []).findIndex((r) => String(r.id) === String(id));
+    if (index === -1) return;
+    const removed = dt.rows[index];
+    const dependenciesBefore = dt.dependencies || [];
+
+    dt.rows = dt.rows.filter((r) => String(r.id) !== String(id));
+    dt.dependencies = dependenciesBefore.filter(
+      (dep) => String(dep.from) !== String(id) && String(dep.to) !== String(id)
+    );
+    cache.set(dt._id, { dt, at: Date.now() });
     bump();
-    store.deleteDataTableRow(dt._id, id).catch((err) => {
-      invalidate(dt._id);
-      showToast(err.message, "error");
+
+    const pending = pendingRows.current.get(String(id));
+    if (pending) {
+      pending.deleted = true;
+      pendingRows.current.delete(String(id));
+      return;
+    }
+
+    const restore = (err) => {
+      // Restore the row and its links if the server rejected the delete.
+      dt.rows.splice(Math.min(index, dt.rows.length), 0, removed);
+      dt.dependencies = dependenciesBefore;
+      cache.set(dt._id, { dt, at: Date.now() });
       bump();
-    });
+      showToast(err.message, "error");
+    };
+
+    // Never send DELETE while an update for this row is still in flight: the
+    // update could otherwise save after the delete and re-create stale data.
+    const queued = rowWrites.current.get(String(id));
+    const removeOnServer = () => store.deleteDataTableRow(dt._id, id);
+    if (queued) {
+      queued
+        .catch(() => null)
+        .then(removeOnServer)
+        .catch(restore);
+    } else {
+      removeOnServer().catch(restore);
+    }
   };
 
   const deleteRowConfirm = async (id) => {
@@ -348,6 +435,71 @@ export default function Database({ block, pageId }) {
       danger: true,
     });
     if (ok) deleteRow(id);
+  };
+
+  /* ---------- timeline preferences & dependencies ---------- */
+  const saveConfig = (patch) => {
+    const dt = dtRef.current;
+    if (!dt) return;
+    dt.viewConfig = { ...(dt.viewConfig || {}), ...patch };
+    const snapshot = dt.viewConfig;
+    cache.set(dt._id, { dt, at: Date.now() });
+    bump();
+
+    // Keep writes in order. A burst of zoom/navigation clicks settles on the
+    // final preference instead of letting an older response win.
+    configWrites.current = configWrites.current
+      .catch(() => null)
+      .then(() => store.updateDataTable(dt._id, { viewConfig: snapshot }))
+      .then((saved) => {
+        const current = dtRef.current;
+        if (!current || current.viewConfig !== snapshot) return;
+        current.viewConfig = saved.viewConfig || snapshot;
+        current.updatedAt = saved.updatedAt;
+        cache.set(current._id, { dt: current, at: Date.now() });
+        bump();
+      })
+      .catch((err) => showToast(err.message, "error"));
+  };
+
+  const saveDependencies = (next) => {
+    const dt = dtRef.current;
+    if (!dt) return Promise.resolve(false);
+    dt.dependencies = next;
+    cache.set(dt._id, { dt, at: Date.now() });
+    bump();
+
+    const write = dependencyWrites.current
+      .catch(() => null)
+      .then(() => store.updateDataTable(dt._id, { dependencies: next }));
+    dependencyWrites.current = write;
+
+    return write
+      .then((saved) => {
+        // Track the server-confirmed state even when a newer optimistic array
+        // is already visible; a later failure should roll back to this state.
+        savedDependencies.current = saved.dependencies || next;
+        const current = dtRef.current;
+        if (current && current.dependencies === next) {
+          current.dependencies = savedDependencies.current;
+          current.updatedAt = saved.updatedAt;
+          cache.set(current._id, { dt: current, at: Date.now() });
+          bump();
+        }
+        return true;
+      })
+      .catch((err) => {
+        const current = dtRef.current;
+        // Roll back to the last state the server actually confirmed, not to a
+        // previous optimistic array that may also have failed to save.
+        if (current && current.dependencies === next) {
+          current.dependencies = savedDependencies.current;
+          cache.set(current._id, { dt: current, at: Date.now() });
+          bump();
+        }
+        showToast(err.message, "error");
+        return false;
+      });
   };
 
   /* ---------- view switch ---------- */
@@ -427,6 +579,18 @@ export default function Database({ block, pageId }) {
               addRow={addRow}
               deleteRow={deleteRowConfirm}
             />
+          ) : view === "list" ? (
+            <ListView
+              dataTable={dataTable}
+              addRow={addRow}
+              openRow={(row) => setRowId(row.id)}
+            />
+          ) : view === "gallery" ? (
+            <GalleryView
+              dataTable={dataTable}
+              addRow={addRow}
+              openRow={(row) => setRowId(row.id)}
+            />
           ) : view === "calendar" ? (
             <CalendarView
               dataTable={dataTable}
@@ -438,11 +602,15 @@ export default function Database({ block, pageId }) {
               openRow={(row) => setRowId(row.id)}
             />
           ) : (
-            <RoadmapView
+            <TimelineView
               dataTable={dataTable}
-              setCell={setCell}
+              revision={revision}
+              setCells={setCells}
+              addRow={addRow}
               openSettings={() => setSettingsOpen(true)}
               openRow={(row) => setRowId(row.id)}
+              onConfigChange={saveConfig}
+              onDependenciesChange={saveDependencies}
             />
           )}
         </div>
@@ -452,7 +620,7 @@ export default function Database({ block, pageId }) {
 
   const dialogRow =
     dataTable && rowId
-      ? (dataTable.rows || []).find((r) => r.id === rowId) || null
+      ? (dataTable.rows || []).find((r) => String(r.id) === String(rowId)) || null
       : null;
 
   return (
@@ -479,6 +647,8 @@ export default function Database({ block, pageId }) {
           dataTable={dataTable}
           row={dialogRow}
           setCell={setCell}
+          dependencies={dataTable.dependencies || []}
+          onDependenciesChange={saveDependencies}
           onDelete={() => {
             const id = dialogRow.id;
             setRowId(null);
@@ -795,191 +965,88 @@ function CalendarView({
 }
 
 /* ============================================================
-   Roadmap
+   List & gallery views
    ============================================================ */
-function monthDiff(from, to) {
-  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+function ListView({ dataTable, addRow, openRow }) {
+  const primary = titleColumn(dataTable);
+  const secondary = statusColumnOf(dataTable);
+  const dateCol = columnOfType(dataTable, "date");
+  const rows = dataTable.rows || [];
+
+  return (
+    <div className="db-list">
+      {rows.length === 0 ? (
+        <div className="db-empty">
+          <p>No records yet. Add the first one.</p>
+        </div>
+      ) : (
+        rows.map((row) => (
+          <button
+            type="button"
+            className="db-list-row"
+            key={row.id}
+            data-color={secondary ? statusColor(row[secondary]) : ""}
+            onClick={() => openRow(row)}
+          >
+            <span className="db-list-title">{cellText(row[primary]) || "Untitled"}</span>
+            {secondary && row[secondary] ? (
+              <span className="db-pill">{cellText(row[secondary])}</span>
+            ) : null}
+            {dateCol && row[dateCol] ? (
+              <span className="db-pill db-pill-date">{cellText(row[dateCol]).slice(0, 10)}</span>
+            ) : null}
+            <span className="db-list-open" aria-hidden="true">Open</span>
+          </button>
+        ))
+      )}
+      <div className="db-footer">
+        <button className="btn btn-ghost btn-sm" onClick={() => addRow()}>
+          + New row
+        </button>
+      </div>
+    </div>
+  );
 }
 
-function RoadmapView({ dataTable, setCell, openSettings, openRow }) {
-  const props = dataTable.properties || {};
-  const dateCols = columns(dataTable).filter((c) => (props[c] || {}).type === "date");
-
-  if (!dateCols.length) {
-    return (
-      <div className="db-empty">
-        <Icon name="zap" />
-        <p>This database has no date property, so there is nothing to lay out on a roadmap.</p>
-        <button className="btn btn-secondary btn-sm" onClick={openSettings}>
-          Add a date property
-        </button>
-      </div>
-    );
-  }
-
-  const dateCol = dateCols.find((c) => /start|begin|from/i.test(c)) || dateCols[0];
-  const endCol =
-    dateCols.find(
-      (c) => c !== dateCol && /end|due|finish|until|complete|to$/i.test(c)
-    ) ||
-    dateCols.find((c) => c !== dateCol) ||
-    null;
-
-  const groupCol = groupColumn(dataTable);
-  const statusCol = statusColumnOf(dataTable);
+function GalleryView({ dataTable, addRow, openRow }) {
   const primary = titleColumn(dataTable);
-  const options = optionsFor(dataTable, groupCol);
+  const group = groupColumn(dataTable);
+  const rows = dataTable.rows || [];
 
-  const dated = (dataTable.rows || []).filter((r) => toDate(r[dateCol]));
-  if (!dated.length) {
+  if (!rows.length) {
     return (
       <div className="db-empty">
-        <Icon name="zap" />
-        <p>Add a date to at least one row and the roadmap will lay them out on a timeline.</p>
-        <button className="btn btn-secondary btn-sm" onClick={openSettings}>
-          Add a date property
+        <Icon name="layout" />
+        <p>No records yet. Add one to start the gallery.</p>
+        <button className="btn btn-secondary btn-sm" onClick={() => addRow()}>
+          + New record
         </button>
       </div>
     );
   }
-
-  const times = [];
-  dated.forEach((r) => {
-    times.push(toDate(r[dateCol]).getTime());
-    if (endCol && toDate(r[endCol])) times.push(toDate(r[endCol]).getTime());
-  });
-  const min = new Date(Math.min.apply(null, times));
-  const max = new Date(Math.max.apply(null, times));
-
-  const buckets = [];
-  const cursor = new Date(min.getFullYear(), min.getMonth(), 1);
-  const guard = 36;
-  while (cursor <= max && buckets.length < guard) {
-    buckets.push(new Date(cursor.getTime()));
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
-  const spanStart = buckets[0];
-  const spanEnd = new Date(
-    buckets[buckets.length - 1].getFullYear(),
-    buckets[buckets.length - 1].getMonth() + 1,
-    1
-  );
-  const monthWidth = 132; // keep in sync with database.css
 
   return (
     <>
-      <div className="db-roadmap">
-        <div className="db-roadmap-head">
-          <div className="db-roadmap-corner"></div>
-          <div className="db-roadmap-months">
-            {buckets.map((b, i) => (
-              <div className="db-roadmap-month" key={i}>
-                {MONTHS[b.getMonth()].slice(0, 3) + " " + String(b.getFullYear()).slice(2)}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {options.map((option) => {
-          const rows = dated.filter((r) => cellText(r[groupCol]) === option);
-          if (!rows.length) return null;
-          return (
-            <div className="db-roadmap-row" key={option}>
-              <div className="db-roadmap-label">{option}</div>
-              <div
-                className="db-roadmap-track"
-                onDragOver={(e) => {
-                  if (!e.dataTransfer.types.includes("text/plain")) return;
-                  e.preventDefault();
-                  e.currentTarget.classList.add("is-over");
-                }}
-                onDragLeave={(e) => e.currentTarget.classList.remove("is-over")}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.classList.remove("is-over");
-                  const id = e.dataTransfer.getData("text/plain");
-                  const item = (dataTable.rows || []).find(
-                    (x) => String(x.id) === String(id)
-                  );
-                  if (!item) return;
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const width = monthWidth * buckets.length || rect.width;
-                  const col = Math.max(
-                    0,
-                    Math.min(
-                      buckets.length - 1,
-                      Math.floor(
-                        (e.clientX - rect.left) / (width / buckets.length)
-                      )
-                    )
-                  );
-                  const original = toDate(item[dateCol]);
-                  const targetDay = original ? original.getDate() : 1;
-                  const targetMonth = new Date(
-                    spanStart.getFullYear(),
-                    spanStart.getMonth() + col,
-                    1
-                  );
-                  const lastDay = new Date(
-                    targetMonth.getFullYear(),
-                    targetMonth.getMonth() + 1,
-                    0
-                  ).getDate();
-                  const next = new Date(
-                    targetMonth.getFullYear(),
-                    targetMonth.getMonth(),
-                    Math.min(targetDay, lastDay)
-                  );
-                  setCell(item.id, dateCol, dayKey(next));
-                }}
-              >
-                {buckets.map((_, i) => (
-                  <div className="db-roadmap-slot" key={"slot" + i} />
-                ))}
-                {rows.map((row) => {
-                  const start = toDate(row[dateCol]);
-                  const end = endCol ? toDate(row[endCol]) : null;
-                  const offset = Math.max(0, monthDiff(spanStart, start));
-                  let span = 1;
-                  if (end && end > start) {
-                    span = Math.max(1, monthDiff(start, end) + 1);
-                  }
-                  return (
-                    <div
-                      className="db-roadmap-bar"
-                      key={row.id}
-                      draggable="true"
-                      data-id={row.id}
-                      data-color={statusColor(row[statusCol])}
-                      style={{ gridColumn: Math.max(1, offset + 1) + " / span " + span }}
-                      title={
-                        cellText(row[primary]) +
-                        " \u2014 " +
-                        dayKey(start) +
-                        (end && end > start ? " \u2192 " + dayKey(end) : "")
-                      }
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = "move";
-                        e.dataTransfer.setData("text/plain", row.id);
-                        e.currentTarget.classList.add("is-dragging");
-                      }}
-                      onDragEnd={(e) => e.currentTarget.classList.remove("is-dragging")}
-                      onClick={() => openRow(row)}
-                    >
-                      {cellText(row[primary]) || "Untitled"}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+      <div className="db-gallery">
+        {rows.map((row) => (
+          <button
+            type="button"
+            className="db-gallery-card"
+            key={row.id}
+            data-color={statusColor(row[group])}
+            onClick={() => openRow(row)}
+          >
+            <span className="db-gallery-title">{cellText(row[primary]) || "Untitled"}</span>
+            <CardMeta dataTable={dataTable} row={row} skip={group} />
+            {row[group] ? <span className="db-gallery-group">{cellText(row[group])}</span> : null}
+          </button>
+        ))}
       </div>
-      <p className="db-note">
-        {"Timeline spans " + dayKey(spanStart) + " \u2192 " + dayKey(spanEnd)}
-        {endCol ? " \u00b7 bars span " + dateCol + " to " + endCol : ""}
-        {" \u00b7 drag a bar to reschedule it."}
-      </p>
+      <div className="db-footer">
+        <button className="btn btn-ghost btn-sm" onClick={() => addRow()}>
+          + New row
+        </button>
+      </div>
     </>
   );
 }
@@ -987,9 +1054,76 @@ function RoadmapView({ dataTable, setCell, openSettings, openRow }) {
 /* ============================================================
    Row dialog
    ============================================================ */
-function RowDialog({ dataTable, row, setCell, onDelete, onClose }) {
+function RowDialog({
+  dataTable,
+  row,
+  setCell,
+  dependencies,
+  onDependenciesChange,
+  onDelete,
+  onClose,
+}) {
+  const [depTarget, setDepTarget] = useState("");
+  const [depType, setDepType] = useState("finish-to-start");
   const cols = columns(dataTable);
   const title = cellText(row[titleColumn(dataTable)]) || "Row";
+  const rows = dataTable.rows || [];
+  const links = dependencies || [];
+  const incoming = links.filter((dep) => String(dep.to) === String(row.id));
+  const outgoing = links.filter((dep) => String(dep.from) === String(row.id));
+  const startCol = startDateColumn(dataTable);
+  const endCol = endDateColumn(dataTable, startCol);
+  const rowById = (id) => rows.find((r) => String(r.id) === String(id)) || null;
+  const rowPending = !!row.__pending;
+
+  const addDependency = (from, to) => {
+    if (rowPending) {
+      showToast("Wait for this row to finish saving before adding dependencies", "info");
+      return;
+    }
+    if (!from || !to) return;
+    if (String(from) === String(to)) {
+      showToast("A task cannot depend on itself", "error");
+      return;
+    }
+    if (dependencyExists(links, from, to)) {
+      showToast("Those tasks are already linked", "info");
+      return;
+    }
+    if (wouldCreateCycle(links, from, to)) {
+      showToast("That link would create a dependency cycle", "error");
+      return;
+    }
+
+    const predecessor = rowById(from);
+    const successor = rowById(to);
+    const before = predecessor && startCol ? rowDates(dataTable, predecessor, startCol, endCol) : null;
+    const after = successor && startCol ? rowDates(dataTable, successor, startCol, endCol) : null;
+    const scheduleError = dependencyScheduleError(depType, before, after);
+    if (scheduleError) {
+      showToast(scheduleError, "error");
+      return;
+    }
+
+    onDependenciesChange(links.concat(makeDependency(from, to, depType))).then((ok) => {
+      if (ok) setDepTarget("");
+    });
+  };
+
+  const removeDependency = (dep) => {
+    onDependenciesChange(
+      links.filter(
+        (item) =>
+          !(String(item.from) === String(dep.from) && String(item.to) === String(dep.to))
+      )
+    );
+  };
+
+  const linkLabel = (dep, direction) => {
+    const otherId = direction === "in" ? dep.from : dep.to;
+    const other = rowById(otherId);
+    return other ? cellText(other[titleColumn(dataTable)]) || "Untitled" : "Deleted task";
+  };
 
   return (
     <Dialog
@@ -1077,6 +1211,106 @@ function RowDialog({ dataTable, row, setCell, onDelete, onClose }) {
             </div>
           );
         })}
+
+        <div className="db-dialog-deps">
+          <div className="db-settings-section-title">Dependencies</div>
+          <div className="field">
+            <label htmlFor="db-dep-type">Relationship</label>
+            <select
+              id="db-dep-type"
+              className="select"
+              value={depType}
+              disabled={rowPending}
+              onChange={(e) => setDepType(e.target.value)}
+            >
+              {Object.entries(DEPENDENCY_TYPES).map(([id, label]) => (
+                <option value={id} key={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="db-dep-target">Depends on</label>
+            <select
+              id="db-dep-target"
+              className="select"
+              value={depTarget}
+              disabled={rowPending}
+              onChange={(e) => {
+                const value = e.target.value;
+                setDepTarget("");
+                if (value) addDependency(value, row.id);
+              }}
+            >
+              <option value="">Choose a task…</option>
+              {rows
+                .filter(
+                  (other) =>
+                    String(other.id) !== String(row.id) && !other.__pending
+                )
+                .map((other) => (
+                  <option value={other.id} key={other.id}>
+                    {cellText(other[titleColumn(dataTable)]) || "Untitled"}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {incoming.length ? (
+            <div className="db-dep-list">
+              <span className="db-dep-heading">Blocked by</span>
+              {incoming.map((dep) => (
+                <div className="db-dep-row" key={dep.id || dep.from + dep.to}>
+                  <span className="db-dep-main">
+                    <span>{linkLabel(dep, "in")}</span>
+                    <span className="db-dep-type">
+                      {DEPENDENCY_TYPES[dep.type] || DEPENDENCY_TYPES["finish-to-start"]}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="db-dep-remove"
+                    aria-label="Remove dependency"
+                    onClick={() => removeDependency(dep)}
+                  >
+                    <Icon name="close" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {outgoing.length ? (
+            <div className="db-dep-list">
+              <span className="db-dep-heading">Blocks</span>
+              {outgoing.map((dep) => (
+                <div className="db-dep-row" key={dep.id || dep.from + dep.to}>
+                  <span className="db-dep-main">
+                    <span>{linkLabel(dep, "out")}</span>
+                    <span className="db-dep-type">
+                      {DEPENDENCY_TYPES[dep.type] || DEPENDENCY_TYPES["finish-to-start"]}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="db-dep-remove"
+                    aria-label="Remove dependency"
+                    onClick={() => removeDependency(dep)}
+                  >
+                    <Icon name="close" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <p className="db-dialog-hint">
+            {rowPending
+              ? "This row is still saving. Dependencies unlock when it has a server id."
+              : dependencyDescription(depType)}
+          </p>
+        </div>
       </div>
     </Dialog>
   );

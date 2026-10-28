@@ -12,6 +12,12 @@ import {
 } from "../ui/index.jsx";
 import { themeItems } from "../menus.jsx";
 import { useApp } from "../../appContext.js";
+import {
+  focusFirstInvalid,
+  validateEmail,
+  validateWorkspaceName,
+  PAGE_TITLE_MAX,
+} from "../../core/validation.js";
 
 const ROLE_LABELS = { owner: "Owner", admin: "Admin", member: "Member", viewer: "Viewer" };
 
@@ -30,7 +36,9 @@ export default function Sidebar({ mobileOpen, setMobileOpen, openProfileMenu, on
   const [prompt, setPrompt] = useState(null);
   const [workspaceName, setWorkspaceName] = useState(null);
   const [membersOpen, setMembersOpen] = useState(false);
-  const [invite, setInvite] = useState({ email: "", role: "member", busy: false });
+  const [invite, setInvite] = useState({ email: "", role: "member", busy: false, error: "" });
+  const workspaceFormRef = useRef(null);
+  const inviteFormRef = useRef(null);
 
   const collapsed = !state.settings.sidebarOpen;
   const className =
@@ -299,19 +307,27 @@ export default function Sidebar({ mobileOpen, setMobileOpen, openProfileMenu, on
   };
 
   const renameWorkspace = () => {
-    setWorkspaceName({ value: state.workspace.name || "" });
+    setWorkspaceName({ value: state.workspace.name || "", error: "" });
   };
 
   const saveWorkspaceName = () => {
     if (!workspaceName) return;
     const name = workspaceName.value.trim();
-    if (name && name !== state.workspace.name) store.renameWorkspace(name);
+    const validationError = validateWorkspaceName(name);
+    if (validationError) {
+      setWorkspaceName((current) =>
+        current ? Object.assign({}, current, { error: validationError }) : current
+      );
+      focusFirstInvalid(workspaceFormRef.current);
+      return;
+    }
+    if (name !== state.workspace.name) store.renameWorkspace(name);
     setWorkspaceName(null);
   };
 
   const openMembers = async () => {
     setMembersOpen(true);
-    setInvite({ email: "", role: "member", busy: false });
+    setInvite({ email: "", role: "member", busy: false, error: "" });
     try {
       await store.reloadMembers();
     } catch (err) {
@@ -405,19 +421,25 @@ export default function Sidebar({ mobileOpen, setMobileOpen, openProfileMenu, on
   const canManage = state.workspace.role === "owner" || state.workspace.role === "admin";
 
   const inviteMember = async () => {
+    if (invite.busy) return;
     const email = invite.email.trim();
-    if (!email) {
-      showToast("Enter an email address", "error");
+    const validationError = validateEmail(email, {
+      required: "Enter an email address.",
+    });
+    if (validationError) {
+      setInvite((v) => Object.assign({}, v, { error: validationError }));
+      focusFirstInvalid(inviteFormRef.current);
       return;
     }
-    setInvite((v) => Object.assign({}, v, { busy: true }));
+    setInvite((v) => Object.assign({}, v, { busy: true, error: "" }));
     try {
       await store.addMember(email, invite.role);
       showToast("Invited " + email, "success");
-      setInvite({ email: "", role: "member", busy: false });
+      setInvite({ email: "", role: "member", busy: false, error: "" });
     } catch (err) {
       showToast(err.message, "error");
-      setInvite((v) => Object.assign({}, v, { busy: false }));
+      setInvite((v) => Object.assign({}, v, { busy: false, error: err.message || "" }));
+      focusFirstInvalid(inviteFormRef.current);
     }
   };
 
@@ -469,7 +491,33 @@ export default function Sidebar({ mobileOpen, setMobileOpen, openProfileMenu, on
       const isRenaming = renaming && renaming.id === page.id;
 
       return (
-        <div className="page-row-wrap" data-id={page.id} key={page.id}>
+        <div
+          className="page-row-wrap"
+          data-id={page.id}
+          key={page.id}
+          role="treeitem"
+          aria-level={depth + 1}
+          aria-selected={isActive}
+          aria-expanded={hasChildren ? isOpen : undefined}
+          aria-label={page.title || "Untitled"}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.target.closest("button") || e.target.closest("input")) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              app.openPage(page.id);
+            } else if (e.key === "ArrowRight" && hasChildren && !isOpen) {
+              e.preventDefault();
+              store.setExpanded(page.id, true);
+            } else if (e.key === "ArrowLeft" && hasChildren && isOpen) {
+              e.preventDefault();
+              store.setExpanded(page.id, false);
+            } else if (e.key === "F2") {
+              e.preventDefault();
+              startRename(page);
+            }
+          }}
+        >
           <div
             className={"page-row" + (dragId === page.id ? " dragging" : "")}
             data-page-row
@@ -572,7 +620,10 @@ export default function Sidebar({ mobileOpen, setMobileOpen, openProfileMenu, on
             </div>
           </div>
           {hasChildren ? (
-            <div className={"page-children" + (isOpen ? "" : " is-collapsed")}>
+            <div
+              className={"page-children" + (isOpen ? "" : " is-collapsed")}
+              role="group"
+            >
               {renderTree(page.id, depth + 1)}
             </div>
           ) : null}
@@ -620,27 +671,27 @@ export default function Sidebar({ mobileOpen, setMobileOpen, openProfileMenu, on
             <div className="sidebar-section-label">Favorites</div>
             <div id="sidebar-favorites">
               {favorites.map((p) => (
-                <button
-                  className="sidebar-fav-item"
-                  data-id={p.id}
-                  key={p.id}
-                  onClick={() => app.openPage(p.id)}
-                >
-                  <span className="page-icon">{p.icon || "\uD83D\uDCDD"}</span>
-                  <span className="page-title">{p.title || "Untitled"}</span>
-                  <span
+                <div className="sidebar-fav-item" key={p.id}>
+                  <button
+                    className="sidebar-fav-open"
+                    data-id={p.id}
+                    onClick={() => app.openPage(p.id)}
+                  >
+                    <span className="page-icon">{p.icon || "\uD83D\uDCDD"}</span>
+                    <span className="page-title">{p.title || "Untitled"}</span>
+                  </button>
+                  <button
                     className="sidebar-fav-star"
-                    role="button"
-                    aria-label="Remove from favorites"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    type="button"
+                    aria-label={"Remove " + (p.title || "Untitled") + " from favorites"}
+                    onClick={() => {
                       store.toggleFavorite(p.id);
                       showToast("Removed from favorites");
                     }}
                   >
                     <Icon name="starFilled" />
-                  </span>
-                </button>
+                  </button>
+                </div>
               ))}
             </div>
 
@@ -659,6 +710,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen, openProfileMenu, on
               id="sidebar-tree"
               className="sidebar-tree"
               ref={treeRef}
+              role="tree"
+              aria-label="Pages"
               onDragOver={onTreeDragOver}
               onDrop={onTreeDrop}
               onDragLeave={(e) => {
@@ -715,32 +768,61 @@ export default function Sidebar({ mobileOpen, setMobileOpen, openProfileMenu, on
         onClose={() => setWorkspaceName(null)}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setWorkspaceName(null)}>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => setWorkspaceName(null)}
+            >
               Cancel
             </button>
-            <button className="btn btn-primary" id="ws-save" onClick={saveWorkspaceName}>
+            <button
+              className="btn btn-primary"
+              id="ws-save"
+              type="submit"
+              form="workspace-name-form"
+            >
               Save
             </button>
           </>
         }
       >
-        <div className="field" style={{ margin: 0 }}>
+        <form
+          id="workspace-name-form"
+          className="field"
+          ref={workspaceFormRef}
+          style={{ margin: 0 }}
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            saveWorkspaceName();
+          }}
+        >
           <label htmlFor="ws-name">Workspace name</label>
           <input
             id="ws-name"
+            name="workspaceName"
             type="text"
+            maxLength={PAGE_TITLE_MAX}
             value={workspaceName ? workspaceName.value : ""}
             autoFocus
+            aria-invalid={!!(workspaceName && workspaceName.error)}
+            aria-describedby={
+              workspaceName && workspaceName.error ? "ws-name-error" : undefined
+            }
             onChange={(e) =>
               setWorkspaceName((current) =>
-                current ? Object.assign({}, current, { value: e.target.value }) : current
+                current
+                  ? Object.assign({}, current, { value: e.target.value, error: "" })
+                  : current
               )
             }
-            onKeyDown={(e) => {
-              if (e.key === "Enter") saveWorkspaceName();
-            }}
           />
-        </div>
+          {workspaceName && workspaceName.error ? (
+            <p className="field-error" id="ws-name-error" role="alert">
+              {workspaceName.error}
+            </p>
+          ) : null}
+        </form>
       </Dialog>
 
       <Dialog
@@ -796,35 +878,61 @@ export default function Sidebar({ mobileOpen, setMobileOpen, openProfileMenu, on
           })}
         </div>
         {canManage ? (
-          <div className="member-invite">
-            <input
-              id="invite-email"
-              type="email"
-              placeholder="teammate@example.com"
-              value={invite.email}
-              onChange={(e) =>
-                setInvite((v) => Object.assign({}, v, { email: e.target.value }))
-              }
-            />
-            <select
-              id="invite-role"
-              className="select"
-              value={invite.role}
-              onChange={(e) => setInvite((v) => Object.assign({}, v, { role: e.target.value }))}
+          <>
+            <form
+              className="member-invite"
+              ref={inviteFormRef}
+              noValidate
+              aria-busy={invite.busy}
+              onSubmit={(e) => {
+                e.preventDefault();
+                inviteMember();
+              }}
             >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-              <option value="viewer">Viewer</option>
-            </select>
-            <button
-              className="btn btn-primary"
-              id="invite-btn"
-              disabled={invite.busy}
-              onClick={inviteMember}
-            >
-              {invite.busy ? "Inviting\u2026" : "Invite"}
-            </button>
-          </div>
+              <input
+                id="invite-email"
+                type="email"
+                name="email"
+                placeholder="teammate@example.com"
+                aria-label="Teammate email"
+                required
+                aria-invalid={!!invite.error}
+                aria-describedby={invite.error ? "invite-error" : undefined}
+                value={invite.email}
+                onChange={(e) =>
+                  setInvite((v) =>
+                    Object.assign({}, v, { email: e.target.value, error: "" })
+                  )
+                }
+              />
+              <select
+                id="invite-role"
+                className="select"
+                aria-label="Role"
+                value={invite.role}
+                onChange={(e) =>
+                  setInvite((v) => Object.assign({}, v, { role: e.target.value }))
+                }
+              >
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+                <option value="viewer">Viewer</option>
+              </select>
+              <button
+                className="btn btn-primary"
+                id="invite-btn"
+                type="submit"
+                disabled={invite.busy}
+              >
+                {invite.busy ? "Inviting\u2026" : "Invite"}
+              </button>
+            </form>
+            {invite.error ? (
+              <p className="field-error invite-error" id="invite-error" role="alert">
+                {invite.error}
+              </p>
+            ) : null}
+          </>
         ) : null}
       </Dialog>
     </>
@@ -833,11 +941,14 @@ export default function Sidebar({ mobileOpen, setMobileOpen, openProfileMenu, on
 
 function PromptDialog({ prompt, onFinish }) {
   const [value, setValue] = useState("");
+  const [error, setError] = useState("");
+  const formRef = useRef(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    if (!prompt) return;
+    if (!prompt) return undefined;
     setValue(prompt.value || "");
+    setError("");
     const t = requestAnimationFrame(() => {
       if (inputRef.current) {
         inputRef.current.focus();
@@ -851,8 +962,10 @@ function PromptDialog({ prompt, onFinish }) {
 
   const submit = () => {
     const next = value.trim();
-    if (!next) {
-      if (inputRef.current) inputRef.current.focus();
+    const validationError = validateWorkspaceName(next);
+    if (validationError) {
+      setError(validationError);
+      focusFirstInvalid(formRef.current);
       return;
     }
     onFinish(next);
@@ -866,33 +979,51 @@ function PromptDialog({ prompt, onFinish }) {
       onClose={() => onFinish(null)}
       footer={
         <>
-          <button className="btn btn-secondary" onClick={() => onFinish(null)}>
+          <button className="btn btn-secondary" type="button" onClick={() => onFinish(null)}>
             Cancel
           </button>
           <button
             className={"btn " + (prompt.danger ? "btn-danger" : "btn-primary")}
-            onClick={submit}
+            type="submit"
+            form="prompt-form"
           >
             {prompt.confirmLabel || "Save"}
           </button>
         </>
       }
     >
-      <div className="field" style={{ margin: 0 }}>
+      <form
+        id="prompt-form"
+        className="field"
+        ref={formRef}
+        style={{ margin: 0 }}
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
         <label htmlFor="prompt-input">{prompt.label}</label>
         <input
           id="prompt-input"
           ref={inputRef}
           type="text"
-          maxLength="120"
+          maxLength={PAGE_TITLE_MAX}
           value={value}
           placeholder={prompt.placeholder || ""}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
+          aria-invalid={!!error}
+          aria-describedby={error ? "prompt-input-error" : undefined}
+          onChange={(e) => {
+            setValue(e.target.value);
+            if (error) setError("");
           }}
         />
-      </div>
+        {error ? (
+          <p className="field-error" id="prompt-input-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </form>
     </Dialog>
   );
 }

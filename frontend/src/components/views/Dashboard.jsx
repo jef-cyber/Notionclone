@@ -1,7 +1,12 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 
 import { useStore } from "../../hooks.js";
 import { store } from "../../core/store.js";
+import {
+  focusFirstInvalid,
+  validatePageTitle,
+  PAGE_TITLE_MAX,
+} from "../../core/validation.js";
 import { Dialog, Icon, showToast } from "../ui/index.jsx";
 import { useApp } from "../../appContext.js";
 import { EmptyCard, PageCard } from "../common/PageCard.jsx";
@@ -19,7 +24,9 @@ export default function Dashboard() {
   const app = useApp();
   const [newPageOpen, setNewPageOpen] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState("");
+  const [newPageError, setNewPageError] = useState("");
   const [creating, setCreating] = useState(false);
+  const newPageFormRef = useRef(null);
 
   const hour = new Date().getHours();
   const greeting =
@@ -34,17 +41,26 @@ export default function Dashboard() {
 
   const createWorkspacePage = async () => {
     if (creating) return;
+    const title = newPageTitle.trim();
+    const validationError = validatePageTitle(title);
+    if (validationError) {
+      setNewPageError(validationError);
+      focusFirstInvalid(newPageFormRef.current);
+      return;
+    }
+    setNewPageError("");
     setCreating(true);
-    setNewPageOpen(false);
     try {
-      const page = await store.createPage({ title: newPageTitle.trim(), icon: "\uD83D\uDCDD" });
+      const page = await store.createPage({ title, icon: "\uD83D\uDCDD" });
       showToast("Page created", "success");
+      setNewPageOpen(false);
+      setNewPageTitle("");
       app.openPage(page.id);
     } catch (err) {
-      showToast(err.message || "Could not create the page", "error");
+      setNewPageError(err.message || "Could not create the page. Please try again.");
+      focusFirstInvalid(newPageFormRef.current);
     } finally {
       setCreating(false);
-      setNewPageTitle("");
     }
   };
 
@@ -78,6 +94,7 @@ export default function Dashboard() {
           data-qa="new-workspace-page"
           onClick={() => {
             setNewPageTitle("");
+            setNewPageError("");
             setNewPageOpen(true);
           }}
         >
@@ -116,34 +133,64 @@ export default function Dashboard() {
         onClose={() => setNewPageOpen(false)}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setNewPageOpen(false)}>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => setNewPageOpen(false)}
+            >
               Cancel
             </button>
-            <button className="btn btn-primary" id="nwp-ok" disabled={creating} onClick={createWorkspacePage}>
-              Create
+            <button
+              className="btn btn-primary"
+              id="nwp-ok"
+              type="submit"
+              form="new-page-form"
+              disabled={creating}
+            >
+              {creating ? "Creating…" : "Create"}
             </button>
           </>
         }
       >
-        <p style={{ marginBottom: 10 }}>Name your new top-level page.</p>
-        <input
-          id="nwp-title"
-          type="text"
-          placeholder="Page name"
-          value={newPageTitle}
-          autoFocus
-          style={{
-            width: "100%",
-            padding: "8px 12px",
-            border: "1px solid var(--border-strong)",
-            borderRadius: 6,
-            background: "var(--bg-secondary)",
+        <form
+          id="new-page-form"
+          className="dialog-form"
+          ref={newPageFormRef}
+          noValidate
+          aria-busy={creating}
+          onSubmit={(e) => {
+            e.preventDefault();
+            createWorkspacePage();
           }}
-          onChange={(e) => setNewPageTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") createWorkspacePage();
-          }}
-        />
+        >
+          <label className="dialog-label" htmlFor="nwp-title">
+            Page name
+          </label>
+          <input
+            id="nwp-title"
+            className="dialog-input"
+            type="text"
+            name="title"
+            placeholder="Page name"
+            value={newPageTitle}
+            autoFocus
+            required
+            maxLength={PAGE_TITLE_MAX}
+            aria-invalid={!!newPageError}
+            aria-describedby={newPageError ? "nwp-title-error" : undefined}
+            onChange={(e) => {
+              setNewPageTitle(e.target.value);
+              if (newPageError) setNewPageError("");
+            }}
+          />
+          {newPageError ? (
+            <p className="field-error" id="nwp-title-error" role="alert">
+              {newPageError}
+            </p>
+          ) : (
+            <p className="form-hint">You can rename it later from the sidebar.</p>
+          )}
+        </form>
       </Dialog>
     </div>
   );

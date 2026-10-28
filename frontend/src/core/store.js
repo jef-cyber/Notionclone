@@ -1175,6 +1175,14 @@ function setView(view) {
   }, "nav");
 }
 
+/** Show a page shell before its data arrives (direct link, unknown id). */
+function setPageView(pageId) {
+  mutate((s) => {
+    s.view = "page";
+    s.currentPageId = pageId;
+  }, "nav");
+}
+
 function setLoggedIn(v) {
   state.loggedIn = !!v;
   commit("user");
@@ -1222,10 +1230,23 @@ async function searchPages(query) {
   const workspaceId = state.currentWorkspaceId;
   if (!q || !workspaceId) return [];
 
-  const [pageHits, blockHits] = await Promise.all([
-    api.pages.search(workspaceId, q).catch(() => ({ pages: [] })),
-    api.blocks.search(workspaceId, q).catch(() => ({ results: [] })),
+  const [pageReq, blockReq] = await Promise.allSettled([
+    api.pages.search(workspaceId, q),
+    api.blocks.search(workspaceId, q),
   ]);
+
+  // A single failing collection still gives useful partial results. Only treat
+  // the search as failed when both requests fail, so the UI can say so instead
+  // of pretending there were no matches.
+  if (pageReq.status === "rejected" && blockReq.status === "rejected") {
+    const reason = pageReq.reason || blockReq.reason;
+    throw new Error(
+      (reason && reason.message) || "Search is unavailable. Check your connection and try again."
+    );
+  }
+
+  const pageHits = pageReq.status === "fulfilled" ? pageReq.value : { pages: [] };
+  const blockHits = blockReq.status === "fulfilled" ? blockReq.value : { results: [] };
 
   // Make sure anything the server knows about is in the local tree.
   (pageHits.pages || []).forEach((doc) => {
@@ -1370,6 +1391,7 @@ export const store = {
   // navigation
   navigate,
   setView,
+  setPageView,
   setLoggedIn,
   // activity, recents, search
   getActivity,

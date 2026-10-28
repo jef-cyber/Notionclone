@@ -326,6 +326,12 @@ async function run() {
       token,
       body: { Task: "Write editor", Status: "In Progress", Priority: "Medium" },
     });
+    const secondRow = await call("POST", `/api/data-tables/${dataTableId}/rows`, {
+      token,
+      body: { Task: "Ship timeline", Status: "Todo", Priority: "High" },
+    });
+    const secondRowId = secondRow.json?.data?.row?.id;
+    check("second row gets an id", !!secondRowId);
 
     const patched = await call("PATCH", `/api/data-tables/${dataTableId}/rows/${rowId}`, {
       token,
@@ -341,7 +347,7 @@ async function run() {
 
     const get = await call("GET", `/api/data-tables/${dataTableId}`, { token });
     check("GET data table -> 200", get.status === 200, get.text);
-    check("all four views read the same rows", (get.json?.data?.dataTable?.rows || []).length === 2);
+    check("all six views read the same rows", (get.json?.data?.dataTable?.rows || []).length === 3);
 
     // The block is only a pointer to the table; the rows stay here. This is the
     // contract js/blockRenderer.js + js/database.js rely on to mount the views.
@@ -368,12 +374,84 @@ async function run() {
       body: { defaultView: "roadmap" },
     });
     check("PATCH defaultView -> 200", viewSwitch.status === 200, viewSwitch.text);
-    check("view switch keeps the rows", (viewSwitch.json?.data?.dataTable?.rows || []).length === 2);
+    check("view switch keeps the rows", (viewSwitch.json?.data?.dataTable?.rows || []).length === 3);
     const badView = await call("PATCH", `/api/data-tables/${dataTableId}`, {
       token,
       body: { defaultView: "gantt" },
     });
     check("unsupported defaultView -> 400", badView.status === 400, badView.text);
+
+    /* ---------- timeline dependencies ---------- */
+    const dependencyBody = {
+      dependencies: [
+        { from: rowId, to: secondRowId, type: "finish-to-start" },
+      ],
+    };
+    const depSaved = await call("PATCH", `/api/data-tables/${dataTableId}`, {
+      token,
+      body: dependencyBody,
+    });
+    check("save timeline dependency -> 200", depSaved.status === 200, depSaved.text);
+    check(
+      "dependency is persisted with a server id",
+      (depSaved.json?.data?.dataTable?.dependencies || []).length === 1 &&
+        !!depSaved.json.data.dataTable.dependencies[0].id
+    );
+
+    for (const type of ["start-to-start", "finish-to-finish", "start-to-finish"]) {
+      const typed = await call("PATCH", `/api/data-tables/${dataTableId}`, {
+        token,
+        body: { dependencies: [{ from: rowId, to: secondRowId, type }] },
+      });
+      check(
+        `save ${type} dependency -> 200`,
+        typed.status === 200 &&
+          typed.json?.data?.dataTable?.dependencies?.[0]?.type === type,
+        typed.text
+      );
+    }
+
+    const depDuplicate = await call("PATCH", `/api/data-tables/${dataTableId}`, {
+      token,
+      body: {
+        dependencies: [
+          { from: rowId, to: secondRowId },
+          { from: rowId, to: secondRowId },
+        ],
+      },
+    });
+    check("duplicate dependency -> 400", depDuplicate.status === 400, depDuplicate.text);
+
+    const depSelf = await call("PATCH", `/api/data-tables/${dataTableId}`, {
+      token,
+      body: { dependencies: [{ from: rowId, to: rowId }] },
+    });
+    check("self dependency -> 400", depSelf.status === 400, depSelf.text);
+
+    const depCycle = await call("PATCH", `/api/data-tables/${dataTableId}`, {
+      token,
+      body: {
+        dependencies: [
+          { from: rowId, to: secondRowId },
+          { from: secondRowId, to: rowId },
+        ],
+      },
+    });
+    check("dependency cycle -> 400", depCycle.status === 400, depCycle.text);
+
+    const depMissingRow = await call("PATCH", `/api/data-tables/${dataTableId}`, {
+      token,
+      body: { dependencies: [{ from: rowId, to: "row_missing" }] },
+    });
+    check("dependency to missing row -> 400", depMissingRow.status === 400, depMissingRow.text);
+
+    const depBadType = await call("PATCH", `/api/data-tables/${dataTableId}`, {
+      token,
+      body: {
+        dependencies: [{ from: rowId, to: secondRowId, type: "teleport" }],
+      },
+    });
+    check("unsupported dependency type -> 400", depBadType.status === 400, depBadType.text);
 
     // A second property PATCH must merge, not replace.
     const mergePatch = await call("PATCH", `/api/blocks/${dbBlockId}`, {
@@ -388,6 +466,11 @@ async function run() {
       token,
     });
     check("DELETE row -> 200", deleted.status === 200, deleted.text);
+    const afterRowDelete = await call("GET", `/api/data-tables/${dataTableId}`, { token });
+    check(
+      "deleting a row removes its dependencies",
+      (afterRowDelete.json?.data?.dataTable?.dependencies || []).length === 0
+    );
     const missing = await call("PATCH", `/api/data-tables/${dataTableId}/rows/${rowId}`, {
       token,
       body: { values: { Status: "Todo" } },
@@ -430,6 +513,16 @@ async function run() {
       token: otherToken,
     });
     check("another user's data table -> 403", foreignTable.status === 403, foreignTable.text);
+
+    const foreignDependency = await call("PATCH", `/api/data-tables/${dataTableId}`, {
+      token: otherToken,
+      body: { dependencies: [] },
+    });
+    check(
+      "another user's dependencies -> 403",
+      foreignDependency.status === 403,
+      foreignDependency.text
+    );
 
     const crossWorkspaceParent = await call(
       "POST",

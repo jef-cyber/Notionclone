@@ -22,6 +22,63 @@ import { COMMON_ICONS, slashItems } from "../../core/blockTypes.js";
 import { Dialog, Icon, openMenu, relativeTime, showToast } from "../ui/index.jsx";
 import Database from "../database/Database.jsx";
 
+const CODE_LANGUAGES = [
+  "JavaScript",
+  "TypeScript",
+  "Python",
+  "HTML",
+  "CSS",
+  "JSON",
+  "Bash",
+  "SQL",
+  "Plain text",
+];
+
+function isImageSource(value) {
+  const v = String(value || "").trim();
+  if (!v) return false;
+  if (v.startsWith("data:image/")) return true;
+  if (v.startsWith("/") || v.startsWith("./") || v.startsWith("../")) return true;
+  try {
+    const url = new URL(v);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch (err) {
+    return false;
+  }
+}
+
+function openLanguageMenu(event, block, pageId) {
+  const r = event.currentTarget.getBoundingClientRect();
+  openMenu({
+    x: r.left,
+    y: r.bottom + 4,
+    items: CODE_LANGUAGES.map((language) => ({
+      label: language,
+      checked: (block.language || "") === language,
+      action: () => {
+        store.updateBlock(pageId, block.id, { language });
+        store.commit("blocks");
+      },
+    })),
+  });
+}
+
+function openCalloutIconMenu(event, block, pageId) {
+  const r = event.currentTarget.getBoundingClientRect();
+  openMenu({
+    x: r.left,
+    y: r.bottom + 4,
+    items: COMMON_ICONS.map((icon) => ({
+      label: icon,
+      checked: block.icon === icon,
+      action: () => {
+        store.updateBlock(pageId, block.id, { icon });
+        store.commit("blocks");
+      },
+    })),
+  });
+}
+
 /* ---------- caret helpers ---------- */
 function placeCaretAtEnd(el) {
   const sel = window.getSelection();
@@ -244,17 +301,14 @@ function BlockContent({
     case "code":
       return (
         <div className="block-code-wrap">
-          <span
+          <button
+            type="button"
             className="block-code-lang"
-            onClick={() => {
-              const value = window.prompt("Language", block.language || "");
-              if (value === null) return;
-              store.updateBlock(pageId, block.id, { language: value.trim() });
-              store.commit("blocks");
-            }}
+            aria-label="Change code language"
+            onClick={(e) => openLanguageMenu(e, block, pageId)}
           >
             {block.language || "code"}
-          </span>
+          </button>
           <Editable
             {...shared}
             value={block.content || ""}
@@ -268,13 +322,9 @@ function BlockContent({
         <div className="block-callout">
           <button
             className="callout-icon"
+            type="button"
             aria-label="Change icon"
-            onClick={() => {
-              const next = window.prompt("Emoji", block.icon || "\uD83D\uDCA1");
-              if (!next) return;
-              store.updateBlock(pageId, block.id, { icon: next });
-              store.commit("blocks");
-            }}
+            onClick={(e) => openCalloutIconMenu(e, block, pageId)}
           >
             {block.icon || "\uD83D\uDCA1"}
           </button>
@@ -487,6 +537,9 @@ export default function Editor({ page, focusTitle }) {
   const [format, setFormat] = useState(null);
   const [imageFor, setImageFor] = useState(null);
   const [imageUrl, setImageUrl] = useState("");
+  const [imageError, setImageError] = useState("");
+  const [imageBusy, setImageBusy] = useState(false);
+  const imageFormRef = useRef(null);
 
   const register = useCallback((blockId, el) => {
     if (el) blockEls.current.set(blockId, el);
@@ -691,6 +744,7 @@ export default function Editor({ page, focusTitle }) {
     }
     if (type === "image") {
       setImageUrl("");
+      setImageError("");
       setImageFor(blockId);
       return;
     }
@@ -888,15 +942,53 @@ export default function Editor({ page, focusTitle }) {
 
   /* ---------- image dialog ---------- */
   const insertImage = () => {
-    if (imageFor === null) return;
+    if (imageFor === null || imageBusy) return;
     const val = imageUrl.trim();
-    if (!val) return;
+    if (!val) {
+      setImageError("Paste an image URL or choose a file.");
+      focusFirstInvalid(imageFormRef.current);
+      return;
+    }
+    if (!isImageSource(val)) {
+      setImageError("Use an http(s) URL or an image file.");
+      focusFirstInvalid(imageFormRef.current);
+      return;
+    }
     const blockId = imageFor;
     store.updateBlock(pageId, blockId, { content: val });
     focusAfterRef.current = { id: blockId, atEnd: false };
     store.setBlockType(pageId, blockId, "image");
     setImageFor(null);
     setImageUrl("");
+    setImageError("");
+  };
+
+  const onImageFile = (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type || !file.type.startsWith("image/")) {
+      setImageError("Choose an image file.");
+      focusFirstInvalid(imageFormRef.current);
+      return;
+    }
+    if (file.size > 1.5 * 1024 * 1024) {
+      setImageError("Choose an image under 1.5 MB.");
+      focusFirstInvalid(imageFormRef.current);
+      return;
+    }
+    setImageBusy(true);
+    setImageError("");
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageUrl(String(reader.result || ""));
+      setImageBusy(false);
+    };
+    reader.onerror = () => {
+      setImageError("That file could not be read.");
+      setImageBusy(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   /* ---------- render ---------- */
@@ -1071,50 +1163,79 @@ export default function Editor({ page, focusTitle }) {
         open={imageFor !== null}
         title="Insert image"
         size="modal-sm"
-        onClose={() => setImageFor(null)}
+        onClose={() => {
+          setImageFor(null);
+          setImageError("");
+        }}
         footer={
           <>
             <button
               className="btn btn-secondary"
+              type="button"
+              disabled={imageBusy}
               onClick={() => fileRef.current && fileRef.current.click()}
             >
-              Choose file
+              {imageBusy ? "Reading…" : "Choose file"}
             </button>
-            <button className="btn btn-primary" onClick={insertImage}>
+            <button
+              className="btn btn-primary"
+              type="submit"
+              form="image-form"
+              disabled={imageBusy || !imageUrl.trim()}
+            >
               Insert
             </button>
           </>
         }
       >
-        <p>Paste an image URL below, or choose a file from your device.</p>
-        <input
-          type="text"
-          className="field-input"
-          placeholder="https://example.com/image.png"
-          style={{
-            width: "100%",
-            padding: "8px 12px",
-            border: "1px solid var(--border-strong)",
-            borderRadius: 6,
-            background: "var(--bg-secondary)",
-            marginTop: 10,
+        <form
+          id="image-form"
+          className="dialog-form"
+          ref={imageFormRef}
+          noValidate
+          aria-busy={imageBusy}
+          onSubmit={(e) => {
+            e.preventDefault();
+            insertImage();
           }}
-          value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") insertImage();
-          }}
-        />
-        <input
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          ref={fileRef}
-          onChange={(e) => {
-            const f = e.target.files && e.target.files[0];
-            if (f) setImageUrl(URL.createObjectURL(f));
-          }}
-        />
+        >
+          <p id="image-url-help">
+            Paste an image URL below, or choose an image file under 1.5 MB.
+          </p>
+          <label className="dialog-label" htmlFor="image-url">
+            Image URL
+          </label>
+          <input
+            id="image-url"
+            className="dialog-input"
+            type="text"
+            name="image-url"
+            placeholder="https://example.com/image.png"
+            value={imageUrl}
+            autoFocus
+            aria-invalid={!!imageError}
+            aria-describedby={imageError ? "image-url-help image-url-error" : "image-url-help"}
+            onChange={(e) => {
+              setImageUrl(e.target.value);
+              if (imageError) setImageError("");
+            }}
+          />
+          {imageError ? (
+            <p className="field-error" id="image-url-error" role="alert">
+              {imageError}
+            </p>
+          ) : null}
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            ref={fileRef}
+            onChange={onImageFile}
+          />
+          <p className="form-hint">
+            Files are stored with the page, so they survive a reload.
+          </p>
+        </form>
       </Dialog>
     </div>
   );

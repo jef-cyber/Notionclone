@@ -4,6 +4,7 @@ import { store } from "../../core/store.js";
 import { templates } from "../../core/data.js";
 import { showToast } from "../ui/index.jsx";
 import { useApp } from "../../appContext.js";
+import ViewHeader from "../common/ViewHeader.jsx";
 
 export default function Templates() {
   const app = useApp();
@@ -24,10 +25,10 @@ export default function Templates() {
 
   return (
     <div className="view">
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Templates</h1>
-      <p className="dash-date">
-        Start from a template — it becomes a real page you can edit.
-      </p>
+      <ViewHeader
+        title="Templates"
+        subtitle="Start from a template — it becomes a real page you can edit."
+      />
       <div className="template-grid" id="template-grid">
         {templates.map((template, i) => (
           <button

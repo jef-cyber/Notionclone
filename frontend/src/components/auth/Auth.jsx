@@ -7,7 +7,7 @@ import React from "react";
 import { Icon } from "../ui/index.jsx";
 import * as auth from "../../core/auth.js";
 import theme from "../../core/theme.js";
-import { showToast } from "../ui/index.jsx";
+import { focusFirstInvalid } from "../../core/validation.js";
 
 function ThemeGlyph() {
   return <Icon name={theme.current() === "dark" ? "sun" : "moon"} />;
@@ -103,19 +103,35 @@ export function Landing({ onLogin, onSignup }) {
 
 const EMPTY_ERRORS = {};
 
-function Field({ id, label, type, placeholder, autoComplete, value, onChange, error }) {
+function Field({
+  id,
+  label,
+  type,
+  placeholder,
+  autoComplete,
+  value,
+  onChange,
+  error,
+  name,
+  disabled,
+}) {
   return (
     <div className={"auth-field" + (error ? " has-error" : "")}>
       <label htmlFor={id}>{label}</label>
       <input
         id={id}
+        name={name || id}
         type={type}
         placeholder={placeholder}
         autoComplete={autoComplete}
         value={value}
+        required
+        disabled={disabled}
+        aria-invalid={!!error}
+        aria-describedby={id + "-error"}
         onChange={(e) => onChange(e.target.value)}
       />
-      <div className="auth-error" id={id + "-error"}>
+      <div className="auth-error" id={id + "-error"} aria-live="polite">
         {error || ""}
       </div>
     </div>
@@ -130,23 +146,49 @@ export function AuthView({ mode, onSwitch, onAuthenticated }) {
   const [confirm, setConfirm] = React.useState("");
   const [errors, setErrors] = React.useState(EMPTY_ERRORS);
   const [busy, setBusy] = React.useState(false);
+  const formRef = React.useRef(null);
 
   // React state is already stable; this tiny alias keeps the form readable.
   // (Declared inline rather than as a wrapper so React can track the hooks.)
-  function clearErrors() {
-    if (Object.keys(errors).length) setErrors(EMPTY_ERRORS);
+  function clearFieldError(key) {
+    setErrors((prev) => {
+      if (!prev[key] && !prev.form) return prev;
+      const next = Object.assign({}, prev);
+      delete next[key];
+      delete next.form;
+      return next;
+    });
   }
 
   async function submit(e) {
     if (e && e.preventDefault) e.preventDefault();
     if (busy) return;
+
+    const clientErrors = isLogin
+      ? auth.validateLogin(email, password)
+      : auth.validateRegister(name, email, password, confirm);
+    if (Object.keys(clientErrors).length) {
+      setErrors(clientErrors);
+      focusFirstInvalid(formRef.current);
+      return;
+    }
+
+    setErrors(EMPTY_ERRORS);
     setBusy(true);
-    const res = isLogin
-      ? await auth.login(email, password)
-      : await auth.register(name, email, password, confirm);
-    setBusy(false);
+    let res;
+    try {
+      res = isLogin
+        ? await auth.login(email, password)
+        : await auth.register(name, email, password, confirm);
+    } catch (err) {
+      setErrors({ form: err.message || "Something went wrong. Please try again." });
+      return;
+    } finally {
+      setBusy(false);
+    }
     if (!res.ok) {
       setErrors(res.errors || EMPTY_ERRORS);
+      if (res.errors && !res.errors.form) focusFirstInvalid(formRef.current);
       return;
     }
     if (onAuthenticated) await onAuthenticated(res, isLogin);
@@ -169,7 +211,13 @@ export function AuthView({ mode, onSwitch, onAuthenticated }) {
         <p className="auth-sub">
           {isLogin ? "Log in to your workspace." : "Start your workspace in seconds."}
         </p>
-        <form className="auth-form" onSubmit={submit}>
+        <form
+          className="auth-form"
+          ref={formRef}
+          noValidate
+          aria-busy={busy}
+          onSubmit={submit}
+        >
           {!isLogin ? (
             <Field
               id="reg-name"
@@ -180,9 +228,10 @@ export function AuthView({ mode, onSwitch, onAuthenticated }) {
               value={name}
               onChange={(v) => {
                 setName(v);
-                clearErrors();
+                clearFieldError("name");
               }}
               error={errors.name}
+              disabled={busy}
             />
           ) : null}
           <Field
@@ -194,9 +243,10 @@ export function AuthView({ mode, onSwitch, onAuthenticated }) {
             value={email}
             onChange={(v) => {
               setEmail(v);
-              clearErrors();
+              clearFieldError("email");
             }}
             error={errors.email}
+            disabled={busy}
           />
           <Field
             id={isLogin ? "login-password" : "reg-password"}
@@ -207,9 +257,10 @@ export function AuthView({ mode, onSwitch, onAuthenticated }) {
             value={password}
             onChange={(v) => {
               setPassword(v);
-              clearErrors();
+              clearFieldError("password");
             }}
             error={errors.password}
+            disabled={busy}
           />
           {!isLogin ? (
             <Field
@@ -221,9 +272,10 @@ export function AuthView({ mode, onSwitch, onAuthenticated }) {
               value={confirm}
               onChange={(v) => {
                 setConfirm(v);
-                clearErrors();
+                clearFieldError("confirm");
               }}
               error={errors.confirm}
+              disabled={busy}
             />
           ) : null}
           {errors.form ? <p className="auth-error-banner">{errors.form}</p> : null}
@@ -239,14 +291,26 @@ export function AuthView({ mode, onSwitch, onAuthenticated }) {
             {isLogin ? (
               <>
                 Don’t have an account?{" "}
-                <button id="login-to-register" className="auth-link" type="button" onClick={switchMode}>
+                <button
+                  id="login-to-register"
+                  className="auth-link"
+                  type="button"
+                  disabled={busy}
+                  onClick={switchMode}
+                >
                   Sign up
                 </button>
               </>
             ) : (
               <>
                 Already have an account?{" "}
-                <button id="reg-to-login" className="auth-link" type="button" onClick={switchMode}>
+                <button
+                  id="reg-to-login"
+                  className="auth-link"
+                  type="button"
+                  disabled={busy}
+                  onClick={switchMode}
+                >
                   Log in
                 </button>
               </>

@@ -9,7 +9,7 @@ const crypto = require("crypto");
 const { DataTable } = require("../models");
 const ApiError = require("../utils/ApiError");
 const { assertObjectId } = require("../utils/objectId");
-const { PROPERTY_TYPES } = require("../config/constants");
+const { PROPERTY_TYPES, DEPENDENCY_TYPES } = require("../config/constants");
 const { requirePageAccess, requireDataTableAccess } = require("./access.service");
 
 /** A sensible starting column so a new table is usable immediately. */
@@ -22,6 +22,86 @@ function defaultProperties(name) {
 
 function newRowId() {
   return `row_${crypto.randomBytes(8).toString("hex")}`;
+}
+
+function newDependencyId() {
+  return `dep_${crypto.randomBytes(6).toString("hex")}`;
+}
+
+/**
+ * Validate and normalize timeline dependencies.
+ *
+ * A dependency is persisted beside the rows, not in a parallel task
+ * collection. Rejecting bad links here means a browser cannot save a cycle,
+ * a self-link, a duplicate or a reference to a deleted row.
+ */
+function validateDependencies(dependencies, rows) {
+  if (dependencies === undefined) return undefined;
+  if (!Array.isArray(dependencies)) {
+    throw ApiError.badRequest("dependencies must be an array");
+  }
+
+  const rowIds = new Set((rows || []).map((row) => String(row.id)));
+  const seen = new Set();
+  const normalized = dependencies.map((dep) => {
+    if (!dep || typeof dep !== "object" || Array.isArray(dep)) {
+      throw ApiError.badRequest("Each dependency must be an object");
+    }
+
+    const from = String(dep.from || "");
+    const to = String(dep.to || "");
+    const type = dep.type || "finish-to-start";
+
+    if (!from || !to) {
+      throw ApiError.badRequest("A dependency needs a from row and a to row");
+    }
+    if (from === to) {
+      throw ApiError.badRequest("A task cannot depend on itself");
+    }
+    if (!rowIds.has(from) || !rowIds.has(to)) {
+      throw ApiError.badRequest("A dependency references a row that does not exist");
+    }
+    if (!DEPENDENCY_TYPES.includes(type)) {
+      throw ApiError.badRequest(
+        `Unsupported dependency type "${type}". Allowed: ${DEPENDENCY_TYPES.join(", ")}`
+      );
+    }
+
+    const key = `${from}->${to}`;
+    if (seen.has(key)) {
+      throw ApiError.badRequest("Duplicate dependency");
+    }
+    seen.add(key);
+
+    return {
+      id: dep.id ? String(dep.id) : newDependencyId(),
+      from,
+      to,
+      type,
+    };
+  });
+
+  // Adding from -> to is a cycle when a path already runs from to -> ... -> from.
+  const graph = new Map();
+  normalized.forEach((dep) => {
+    if (!graph.has(dep.from)) graph.set(dep.from, []);
+    graph.get(dep.from).push(dep.to);
+  });
+  normalized.forEach((dep) => {
+    const seenNodes = new Set();
+    const stack = [dep.to];
+    while (stack.length) {
+      const current = stack.pop();
+      if (current === dep.from) {
+        throw ApiError.badRequest("Dependency cycle detected");
+      }
+      if (seenNodes.has(current)) continue;
+      seenNodes.add(current);
+      (graph.get(current) || []).forEach((next) => stack.push(next));
+    }
+  });
+
+  return normalized;
 }
 
 /**
@@ -152,6 +232,7 @@ async function create(pageId, userId, body) {
   const rows = Array.isArray(body.rows)
     ? body.rows.map((values) => ({ id: newRowId(), ...coerceRow(values, properties) }))
     : [];
+  const dependencies = validateDependencies(body.dependencies, rows);
 
   const dataTable = await DataTable.create({
     workspaceId: page.workspaceId,
@@ -162,6 +243,7 @@ async function create(pageId, userId, body) {
     rows,
     defaultView: body.defaultView || "table",
     viewConfig: body.viewConfig || {},
+    dependencies: dependencies || [],
     createdBy: userId,
   });
 
@@ -187,6 +269,19 @@ async function update(dataTableId, patch, userId) {
       const { id, ...rest } = values || {};
       return { id: id || newRowId(), ...coerceRow(rest, dataTable.properties) };
     });
+
+    // Removing a row through a full replacement must also remove its links.
+    const rowIds = new Set(dataTable.rows.map((row) => String(row.id)));
+    dataTable.dependencies = (dataTable.dependencies || []).filter(
+      (dep) => rowIds.has(String(dep.from)) && rowIds.has(String(dep.to))
+    );
+  }
+
+  if (patch.dependencies !== undefined) {
+    dataTable.dependencies = validateDependencies(
+      patch.dependencies,
+      dataTable.rows
+    );
   }
 
   await dataTable.save();
@@ -241,6 +336,11 @@ async function deleteRow(dataTableId, rowId, userId) {
   dataTable.rows = dataTable.rows.filter((r) => String(r.id) !== String(rowId));
   if (dataTable.rows.length === before) throw ApiError.notFound("Row not found");
 
+  // Dependencies are only meaningful while both endpoints exist.
+  dataTable.dependencies = (dataTable.dependencies || []).filter(
+    (dep) => String(dep.from) !== String(rowId) && String(dep.to) !== String(rowId)
+  );
+
   await dataTable.save();
   return { deleted: true, rowId, remaining: dataTable.rows.length };
 }
@@ -255,5 +355,6 @@ module.exports = {
   updateRow,
   deleteRow,
   validateProperties,
+  validateDependencies,
   defaultProperties,
 };

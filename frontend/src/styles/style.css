@@ -683,6 +683,20 @@ kbd {
 .card:active {
   transform: scale(0.99);
 }
+.card-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .card-icon {
   display: flex;
   align-items: center;
@@ -717,12 +731,26 @@ kbd {
   margin-top: 5px;
 }
 .card-star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
   color: var(--text-muted);
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
   flex-shrink: 0;
 }
-.card:hover .card-star,
+.card-star:hover {
+  background: var(--bg-active);
+  color: var(--warning);
+}
+.card-star:focus-visible,
 .card-star[data-active="true"] {
   opacity: 1;
 }
@@ -884,6 +912,49 @@ kbd {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.field.has-error input {
+  border-color: var(--danger);
+}
+.field-error {
+  font-size: 12.5px;
+  color: var(--danger);
+  margin: 0;
+}
+.form-hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 8px 0 0;
+}
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dialog-form > p:first-child {
+  margin-bottom: 4px;
+}
+.dialog-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.dialog-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.dialog-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.dialog-input[aria-invalid="true"] {
+  border-color: var(--danger);
 }
 
 /* Shared select/textarea styling so every form control looks the same. */
@@ -1899,4 +1970,78 @@ body.compact .page-header-title {
 .recent-search-clear:hover {
   color: var(--danger);
   text-decoration: underline;
+}
+
+/* ============================================================
+   Shared view headers, boot screen and form details
+   ============================================================ */
+.view-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.view-header-text {
+  min-width: 0;
+}
+.view-title {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+.view-header-action {
+  flex-shrink: 0;
+}
+
+.notfound-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.search-empty-error {
+  color: var(--danger);
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.settings-form .field {
+  width: 100%;
+}
+.settings-form .avatar-edit {
+  width: 100%;
+}
+
+.boot-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--bg);
+  color: var(--text-secondary);
+}
+.boot-logo {
+  width: 48px;
+  height: 48px;
+}
+.boot-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+.boot-text {
+  font-size: 13.5px;
+  color: var(--text-muted);
 }

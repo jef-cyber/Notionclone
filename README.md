@@ -59,13 +59,14 @@ npm run smoke     # end-to-end API smoke test
 `npm run smoke` boots the real Express app in-process on an OS-assigned port,
 talks to it over HTTP exactly like the browser does, exercises every resource and
 authorization rule, and deletes everything it creates. It needs a reachable
-MongoDB and leaves no residue.
+MongoDB and leaves no residue. The current suite runs 111 checks, including
+timeline dependency validation for all four dependency types.
 
 ## Data model
 
 Everything lives in **six collections**. The interesting constraint is that
-"different-looking" features are never new collections — a database block, a
-kanban board, a calendar and a roadmap are all the same documents:
+"different-looking" features are never new collections — a database block,
+kanban board, calendar, list, gallery and timeline are all the same documents:
 
 | Collection          | Holds                                                    |
 | ------------------- | -------------------------------------------------------- |
@@ -83,10 +84,12 @@ Two shapes are worth knowing:
   `Mixed`, so a new block type needs no migration. Per-type extras belong in
   `properties` — that is where the frontend reads them back.
 - **`dataTable`** holds a flexible `properties` map (`{ Status: { type: "select",
-  options: [...] } }`) and flat `rows` of `{ [column]: value }`. A `database`
-  block is only a *pointer* to one of these, stored as
-  `properties.dataTableId`; the rows themselves never enter the `blocks`
-  collection.
+  options: [...] } }`), flat `rows` of `{ [column]: value }`, and optional
+  `dependencies` records (`finish-to-start`, `start-to-start`,
+  `finish-to-finish` or `start-to-finish`) for timeline tasks. A `database`
+  block is only a
+  *pointer* to one of these, stored as `properties.dataTableId`; the rows
+  themselves never enter the `blocks` collection.
 
 ## Architecture
 
@@ -119,7 +122,11 @@ frontend/
       editor/Editor.jsx
                       Page header, block editing, slash menu, toolbar
       database/Database.jsx
-                      Table / board / calendar / roadmap views
+                      Table / board / list / gallery / calendar views
+      database/TimelineView.jsx
+                      Interactive timeline, drag/resize and dependencies
+      database/databaseUtils.js
+                      Shared database, date and dependency helpers
       overlays/
         SearchModal.jsx Global search dialog
         CommandPalette.jsx Command palette
@@ -184,9 +191,20 @@ backend/
   callout, divider, image, video, toggle, and database blocks. Type `/` for the
   command menu, `Enter` to split, `Backspace` to merge, drag the handle to
   reorder.
-- **Databases** — one document, four views: table, board (drag a card between
-  status columns), calendar, and a roadmap timeline. Switching views never moves
-  or copies data, because there is only one copy.
+- **Databases** — one document, six views: table, board (drag a card between
+  status columns), list, gallery, calendar, and an interactive timeline.
+  Switching views never moves or copies data, because there is only one copy.
+  New rows appear immediately and reconcile with the server afterwards.
+- **Timeline** - day/week/month/quarter zoom, scale-aware snapping, drag to
+  move, drag either edge to resize, edge auto-scroll, Escape cancellation and
+  live date/duration previews. Pointer moves are frame-coalesced, and every bar
+  has a full-row-height grab halo so one-day tasks stay draggable even at
+  quarter zoom. Finish-to-start, start-to-start,
+  finish-to-finish and start-to-finish dependencies render as edge-appropriate
+  SVG connectors, can be selected or removed by keyboard, and are validated
+  before saving. Invalid schedules, cycles, duplicates and self-links are
+  rejected instead of silently changing other tasks; failed saves roll back
+  only the affected row or dependency.
 - **Search** — `Ctrl/⌘ + K` across page titles and block content.
 - **Command palette** — `Ctrl/⌘ + Shift + P`.
 - **Activity** — derived from the pages collection; there is no notifications

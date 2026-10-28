@@ -1,95 +1,20 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef } from "react";
 
-import { useStore } from "../../hooks.js";
+import { usePageSearch, useStore } from "../../hooks.js";
 import { store } from "../../core/store.js";
 import { Icon } from "../ui/index.jsx";
 import { useApp } from "../../appContext.js";
-
-function escapeRegExp(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function Highlight({ text, query }) {
-  if (!query) return text;
-  const parts = String(text).split(new RegExp("(" + escapeRegExp(query) + ")", "ig"));
-  return parts.map((part, i) =>
-    part.toLowerCase() === query.toLowerCase() ? <mark key={i}>{part}</mark> : part
-  );
-}
-
-function ResultItem({ result, index, query, onOpen }) {
-  const page = result.page;
-  const title = page.title || "Untitled";
-  const snippet = result.snippet && result.snippet !== page.title ? result.snippet : "";
-  const path = store
-    .getPath(page.id)
-    .map((p) => p.title || "Untitled")
-    .join(" / ");
-
-  return (
-    <button
-      className="search-result"
-      data-id={page.id}
-      data-index={index}
-      onClick={() => onOpen(page)}
-    >
-      <span className="search-result-icon">{page.icon || "\uD83D\uDCDD"}</span>
-      <span className="search-result-body">
-        <span className="search-result-title">
-          <Highlight text={title} query={query} />
-        </span>
-        {snippet ? (
-          <span className="search-result-snippet">
-            <Highlight text={snippet} query={query} />
-          </span>
-        ) : null}
-      </span>
-      <span className="search-result-path">{path}</span>
-    </button>
-  );
-}
+import ViewHeader from "../common/ViewHeader.jsx";
+import SearchResult from "../common/SearchResult.jsx";
 
 export default function SearchPage() {
   const state = useStore();
   const app = useApp();
-  const [query, setQuery] = useState("");
-  const [result, setResult] = useState({ q: "", items: [], loading: false });
+  const [query, setQuery] = React.useState("");
   const inputRef = useRef(null);
-  const tokenRef = useRef(0);
-
-  useEffect(() => {
-    const q = query.trim();
-    if (!q) {
-      tokenRef.current += 1;
-      setResult({ q: "", items: [], loading: false });
-      return undefined;
-    }
-
-    const mine = ++tokenRef.current;
-    let cancelled = false;
-    setResult((prev) => ({ q, items: prev.q === q ? prev.items : [], loading: true }));
-
-    const timer = setTimeout(async () => {
-      let items = [];
-      try {
-        items = await store.searchPages(q);
-      } catch (err) {
-        items = [];
-      }
-      if (cancelled || mine !== tokenRef.current) return;
-      setResult({ q, items, loading: false });
-    }, 200);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [query]);
-
-  const q = query.trim();
-  const searching = !!q && (result.loading || result.q !== q);
-  const results = q && result.q === q ? result.items : [];
-  const ql = q.toLowerCase();
+  const { query: q, results, loading: searching, error } = usePageSearch(query, {
+    delay: 200,
+  });
 
   const open = (page) => {
     if (!page) return;
@@ -105,8 +30,10 @@ export default function SearchPage() {
 
   return (
     <div className="view view-narrow">
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Search</h1>
-      <p className="dash-date">Find pages, notes, and anything inside them.</p>
+      <ViewHeader
+        title="Search"
+        subtitle="Find pages, notes, and anything inside them."
+      />
       <div className="search-box search-box-page">
         <Icon name="search" />
         <input
@@ -132,6 +59,7 @@ export default function SearchPage() {
                 <div className="search-group-label">Recent searches</div>
                 {recentSearches.map((item) => (
                   <button
+                    type="button"
                     className="recent-search-chip"
                     data-q={item}
                     key={item}
@@ -145,6 +73,7 @@ export default function SearchPage() {
                   </button>
                 ))}
                 <button
+                  type="button"
                   className="recent-search-clear"
                   data-clear-searches
                   onClick={() => store.clearRecentSearches()}
@@ -157,12 +86,12 @@ export default function SearchPage() {
               <>
                 <div className="search-group-label">Recent pages</div>
                 {recents.map((page, i) => (
-                  <ResultItem
+                  <SearchResult
                     result={{ page, snippet: "" }}
                     index={i}
                     query=""
                     key={page.id}
-                    onOpen={open}
+                    onOpen={() => open(page)}
                   />
                 ))}
               </>
@@ -184,6 +113,13 @@ export default function SearchPage() {
                 <br />
                 Searching…
               </div>
+            ) : error ? (
+              <div className="search-empty search-empty-error" role="alert">
+                <Icon name="alert-triangle" />
+                <br />
+                <br />
+                {error}
+              </div>
             ) : !results.length ? (
               <div className="search-empty">
                 <Icon name="search" />
@@ -193,12 +129,12 @@ export default function SearchPage() {
               </div>
             ) : (
               results.map((item, i) => (
-                <ResultItem
+                <SearchResult
                   result={item}
                   index={i}
-                  query={ql}
+                  query={q.toLowerCase()}
                   key={item.page.id}
-                  onOpen={open}
+                  onOpen={() => open(item.page)}
                 />
               ))
             )}

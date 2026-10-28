@@ -3,9 +3,9 @@
    users, password hashing and JWT issuance and is always the authority. */
 
 import * as api from "./api.js";
+import { EMAIL_RE, NAME_MAX, PASSWORD_MIN } from "./validation.js";
 
-export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const PASSWORD_MIN = 8;
+export { EMAIL_RE, PASSWORD_MIN };
 export const TOKEN_KEY = "lumen.token.v1";
 
 export function validateLogin(email, password) {
@@ -25,6 +25,9 @@ export function validateRegister(name, email, password, confirm) {
   const p = String(password || "");
   const c = String(confirm || "");
   if (!n) errors.name = "Name is required.";
+  else if (n.length > NAME_MAX) {
+    errors.name = "Name must be " + NAME_MAX + " characters or fewer.";
+  }
   if (!e) errors.email = "Email is required.";
   else if (!EMAIL_RE.test(e)) errors.email = "Enter a valid email address.";
   if (!p) errors.password = "Password is required.";

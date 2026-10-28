@@ -1,14 +1,14 @@
 <?xml version='1.0' encoding='utf-8'?>
 <repo n="Notionclone">
   <meta>
-    <dep>path,error,express,routes,cors,dotenv,models,mongoose,bcryptjs,workspace,onboarding,block,dataTable,page,access,crypto,jsonwebtoken</dep>
+    <dep>path,express,cors,error,routes,dotenv,models,mongoose,bcryptjs,workspace,onboarding,block,dataTable,page,access,crypto,jsonwebtoken,vite,plugin-react,react,react-dom,editor,sidebar,database,style,responsive</dep>
   </meta>
   <files>
     <f p="backend\app.js" e=".js">
-      <imp>path,error,express,routes,cors</imp>
+      <imp>path,express,cors,error,routes</imp>
     </f>
     <f p="backend\server.js" e=".js">
-      <imp>dotenv,db,models,app</imp>
+      <imp>dotenv,db,app,models</imp>
       <fn n="start" p="()" />
       <fn n="shutdown" p="(signal)" />
     </f>
@@ -20,7 +20,7 @@
       <fn n="isConnected" p="()" />
     </f>
     <f p="backend\controllers\auth.controller.js" e=".js">
-      <imp>bcryptjs,respond,token,models,ApiError,workspace,onboarding</imp>
+      <imp>bcryptjs,token,ApiError,models,respond,workspace,onboarding</imp>
       <fn n="validateCredentials" p="({ name, email, password, confirmPassword }, { isRegister })" />
       <fn n="register" p="(req, res)" />
       <fn n="login" p="(req, res)" />
@@ -73,7 +73,7 @@
       <fn n="removeMember" p="(req, res)" />
     </f>
     <f p="backend\middleware\auth.middleware.js" e=".js">
-      <imp>ApiError,objectId,models,token,constants</imp>
+      <imp>ApiError,token,models,objectId,constants</imp>
       <fn n="extractToken" p="(req)" />
       <fn n="requireAuth" p="(req, _res, next)" />
       <fn n="optionalAuth" p="(req, _res, next)" />
@@ -94,7 +94,7 @@
       <imp>mongoose</imp>
     </f>
     <f p="backend\models\index.js" e=".js">
-      <imp>constants,Workspace,WorkspaceMember,User,Page,Block,DataTable</imp>
+      <imp>constants,WorkspaceMember,Page,Workspace,User,Block,DataTable</imp>
       <fn n="assertCollectionNames" p="()" />
     </f>
     <f p="backend\models\Page.js" e=".js">
@@ -111,22 +111,22 @@
       <imp>mongoose,constants</imp>
     </f>
     <f p="backend\routes\auth.routes.js" e=".js">
-      <imp>express,auth,asyncHandler</imp>
+      <imp>express,asyncHandler,auth</imp>
     </f>
     <f p="backend\routes\block.routes.js" e=".js">
-      <imp>express,auth,asyncHandler,block</imp>
+      <imp>express,asyncHandler,auth,block</imp>
     </f>
     <f p="backend\routes\dataTable.routes.js" e=".js">
       <imp>express,asyncHandler,auth,dataTable</imp>
     </f>
     <f p="backend\routes\index.js" e=".js">
-      <imp>express,workspace,auth,block,page,dataTable</imp>
+      <imp>express,page,auth,workspace,block,dataTable</imp>
     </f>
     <f p="backend\routes\page.routes.js" e=".js">
-      <imp>express,asyncHandler,page,block,auth</imp>
+      <imp>express,auth,asyncHandler,block,page</imp>
     </f>
     <f p="backend\routes\workspace.routes.js" e=".js">
-      <imp>express,asyncHandler,auth,workspace</imp>
+      <imp>express,workspace,auth,asyncHandler</imp>
     </f>
     <f p="backend\services\access.service.js" e=".js">
       <imp>models,ApiError,objectId,auth</imp>
@@ -137,7 +137,7 @@
       <fn n="assertNoCycle" p="(pageId, parentPageId)" />
     </f>
     <f p="backend\services\block.service.js" e=".js">
-      <imp>models,access,objectId,ApiError</imp>
+      <imp>models,ApiError,objectId,access</imp>
       <fn n="listByPage" p="(pageId, userId)" />
       <fn n="getById" p="(blockId, userId)" />
       <fn n="normalizePayload" p="(body)" />
@@ -148,7 +148,7 @@
       <fn n="search" p="(workspaceId, userId, query, limit = 40)" />
     </f>
     <f p="backend\services\dataTable.service.js" e=".js">
-      <imp>crypto,ApiError,models,objectId,constants,access</imp>
+      <imp>crypto,objectId,models,ApiError,constants,access</imp>
       <fn n="defaultProperties" p="(name)" />
       <fn n="newRowId" p="()" />
       <fn n="validateProperties" p="(properties)" />
@@ -167,7 +167,7 @@
       <fn n="seedWorkspace" p="(workspaceId, userId)" />
     </f>
     <f p="backend\services\page.service.js" e=".js">
-      <imp>models,access,ApiError,objectId</imp>
+      <imp>models,objectId,access,ApiError</imp>
       <fn n="listByWorkspace" p="(workspaceId, userId, { includeArchived = false } = {})" />
       <fn n="listChildren" p="(pageId, userId)" />
       <fn n="getById" p="(pageId, userId)" />
@@ -181,7 +181,7 @@
       <fn n="search" p="(workspaceId, userId, query)" />
     </f>
     <f p="backend\services\workspace.service.js" e=".js">
-      <imp>models,auth,objectId,ApiError,constants,access</imp>
+      <imp>models,objectId,ApiError,constants,auth,access</imp>
       <fn n="listForUser" p="(userId)" />
       <fn n="createForUser" p="(userId, { name, icon })" />
       <fn n="getById" p="(workspaceId)" />
@@ -218,7 +218,375 @@
       <fn n="sign" p="(userId, extra)" />
       <fn n="verify" p="(token)" />
     </f>
-    <f p="js\api.js" e=".js">
+    <f p="frontend\vite.config.js" e=".js">
+      <imp>vite,plugin-react</imp>
+    </f>
+    <f p="frontend\src\appContext.js" e=".js">
+      <imp>react</imp>
+      <fn n="useApp" p="()" />
+    </f>
+    <f p="frontend\src\hooks.js" e=".js">
+      <imp>react,store</imp>
+      <fn n="useStore" p="()" />
+      <fn n="useMediaQuery" p="(query)" />
+      <fn n="onChange" p="()" />
+      <fn n="useIsMobile" p="()" />
+      <fn n="usePageSearch" p="(query, options = {})" />
+    </f>
+    <f p="frontend\src\main.jsx" e=".jsx">
+      <imp>react-dom,editor,sidebar,database,style,App,responsive</imp>
+      <cls n="App" />
+    </f>
+    <f p="frontend\src\components\App.jsx" e=".jsx">
+      <imp>theme,index,CommandPalette,Dashboard,hooks,auth,api,Auth,Sidebar,NotFound,react,store,appContext,menus,MobileNav,Templates,Topbar,Activity,Trash,SearchModal,Settings,Favorites,SearchPage,PageView</imp>
+      <fn n="parseHash" p="()" />
+      <fn n="setHash" p="(h)" />
+      <fn n="clearHash" p="()" />
+      <fn n="App" p="()" />
+      <fn n="isLoggedIn" p="()" />
+      <fn n="onHashChange" p="()" />
+      <fn n="onUnauthorized" p="()" />
+      <fn n="onKeyDown" p="(e)" />
+      <fn n="renderView" p="(state, openPage)" />
+      <cls n="Topbar" />
+      <cls n="PageView" />
+      <cls n="Dashboard" />
+      <cls n="Sidebar" />
+      <cls n="CommandPalette" />
+      <cls n="Settings" />
+      <cls n="SearchModal" />
+      <cls n="Activity" />
+      <cls n="SearchPage" />
+      <cls n="AuthView" />
+      <cls n="MobileNav" />
+      <cls n="ToastRoot" />
+      <cls n="Favorites" />
+      <cls n="Templates" />
+      <cls n="NotFound" />
+      <cls n="MenuLayer" />
+      <cls n="Landing" />
+      <cls n="Trash" />
+      <cls n="ModalLayer" />
+    </f>
+    <f p="frontend\src\components\menus.jsx" e=".jsx">
+      <imp>react,theme,store,index</imp>
+      <fn n="themeItems" p="(settings)" />
+      <fn n="openProfileMenu" p="(state, x, y, actions)" />
+      <fn n="openMoreMenu" p="(page, x, y, actions)" />
+      <fn n="doDelete" p="()" />
+      <fn n="copyPageLink" p="(page)" />
+      <fn n="openHelp" p="()" />
+      <fn n="sharePage" p="(page)" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\auth\Auth.jsx" e=".jsx">
+      <imp>react,index,auth,theme</imp>
+      <fn n="ThemeGlyph" p="()" />
+      <fn n="Landing" p="({ onLogin, onSignup })" />
+      <fn n="Field" p="({&#10;  id,&#10;  label,&#10;  type,&#10;  placeholder,&#10;  autoComplete,&#10;  value,&#10;  onChange,&#10;  error,&#10;  name,&#10;  disabled,&#10;})" />
+      <fn n="AuthView" p="({ mode, onSwitch, onAuthenticated })" />
+      <fn n="clearFieldError" p="(key)" />
+      <fn n="submit" p="(e)" />
+      <fn n="switchMode" p="(e)" />
+      <cls n="ThemeGlyph" />
+      <cls n="Field" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\common\PageCard.jsx" e=".jsx">
+      <imp>react,index,appContext,store</imp>
+      <fn n="PageCard" p="({ page, showStar })" />
+      <fn n="EmptyCard" p="({ title, desc })" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\common\SearchResult.jsx" e=".jsx">
+      <imp>react,store</imp>
+      <fn n="escapeRegExp" p="(str)" />
+      <fn n="Highlight" p="({ text, query })" />
+      <fn n="SearchResult" p="({&#10;  result,&#10;  index,&#10;  query,&#10;  onOpen,&#10;  selected,&#10;  onHover,&#10;  option = false,&#10;})" />
+      <cls n="Highlight" />
+    </f>
+    <f p="frontend\src\components\common\ViewHeader.jsx" e=".jsx">
+      <imp>react</imp>
+      <fn n="ViewHeader" p="({ title, subtitle, action })" />
+    </f>
+    <f p="frontend\src\components\database\Database.jsx" e=".jsx">
+      <imp>react,store,index</imp>
+      <fn n="cached" p="(id)" />
+      <fn n="invalidate" p="(id)" />
+      <fn n="columns" p="(dataTable)" />
+      <fn n="titleColumn" p="(dataTable)" />
+      <fn n="columnOfType" p="(dataTable, type)" />
+      <fn n="groupColumn" p="(dataTable)" />
+      <fn n="optionsFor" p="(dataTable, column)" />
+      <fn n="toDate" p="(value)" />
+      <fn n="dayKey" p="(date)" />
+      <fn n="cellText" p="(value)" />
+      <fn n="statusColor" p="(value)" />
+      <fn n="statusColumnOf" p="(dataTable)" />
+      <fn n="Cell" p="({ dataTable, row, column, setCell })" />
+      <fn n="commit" p="(input)" />
+      <fn n="Database" p="({ block, pageId })" />
+      <fn n="setCell" p="(id, column, value)" />
+      <fn n="addRow" p="(extra)" />
+      <fn n="deleteRow" p="(id)" />
+      <fn n="deleteRowConfirm" p="(id)" />
+      <fn n="switchView" p="(id)" />
+      <fn n="TableView" p="({ dataTable, setCell, addRow, deleteRow })" />
+      <fn n="BoardView" p="({ dataTable, setCell, addRow, deleteRow })" />
+      <fn n="CardMeta" p="({ dataTable, row, skip })" />
+      <fn n="CalendarView" p="({&#10;  dataTable,&#10;  monthCursor,&#10;  setMonthCursor,&#10;  setCell,&#10;  addRow,&#10;  openSettings,&#10;  openRow,&#10;})" />
+      <fn n="monthDiff" p="(from, to)" />
+      <fn n="RoadmapView" p="({ dataTable, setCell, openSettings, openRow })" />
+      <fn n="RowDialog" p="({ dataTable, row, setCell, onDelete, onClose })" />
+      <fn n="DatabaseSettings" p="({ open, dataTable, onClose, onSaved, onDatabaseDeleted })" />
+      <fn n="save" p="(patch)" />
+      <fn n="saveName" p="()" />
+      <fn n="addProperty" p="()" />
+      <fn n="deleteProperty" p="(key)" />
+      <fn n="deleteDatabase" p="()" />
+      <cls n="RowDialog" />
+      <cls n="Dialog" />
+      <cls n="Icon" />
+      <cls n="Cell" />
+      <cls n="RoadmapView" />
+      <cls n="BoardView" />
+      <cls n="TableView" />
+      <cls n="CardMeta" />
+      <cls n="CalendarView" />
+      <cls n="DatabaseSettings" />
+    </f>
+    <f p="frontend\src\components\editor\Editor.jsx" e=".jsx">
+      <imp>react,hooks,store,blockTypes,react-dom,index,Database</imp>
+      <fn n="isImageSource" p="(value)" />
+      <fn n="openLanguageMenu" p="(event, block, pageId)" />
+      <fn n="openCalloutIconMenu" p="(event, block, pageId)" />
+      <fn n="placeCaretAtEnd" p="(el)" />
+      <fn n="getCaretOffset" p="(el)" />
+      <fn n="setBlockText" p="(map, blockId, text)" />
+      <fn n="Editable" p="({&#10;  blockId,&#10;  value,&#10;  className,&#10;  placeholder,&#10;  register,&#10;  onInput,&#10;  onKeyDown,&#10;})" />
+      <fn n="ImageContent" p="({ block, register, onInput, onKeyDown, onImageRequest })" />
+      <fn n="ToggleContent" p="({ block, register, onInput, onKeyDown })" />
+      <fn n="BlockContent" p="({&#10;  block,&#10;  pageId,&#10;  numberSeq,&#10;  register,&#10;  onTextInput,&#10;  onKeyDown,&#10;  onImageRequest,&#10;})" />
+      <fn n="Block" p="({&#10;  block,&#10;  pageId,&#10;  numberSeq,&#10;  register,&#10;  onTextInput,&#10;  onKeyDown,&#10;  onImageRequest,&#10;  onTypeMenu,&#10;  onDragStart,&#10;  onDragEnd,&#10;  onDragOver,&#10;  onDrop,&#10;})" />
+      <fn n="PhantomBlock" p="({ onConvert, onBackspaceEmpty })" />
+      <fn n="convert" p="()" />
+      <fn n="Editor" p="({ page, focusTitle })" />
+      <fn n="hide" p="()" />
+      <fn n="onClose" p="()" />
+      <fn n="onPointerDown" p="(e)" />
+      <fn n="onTitleInput" p="()" />
+      <fn n="onTextInput" p="(block, text)" />
+      <fn n="applySlashItem" p="(type)" />
+      <fn n="applySlashSelection" p="()" />
+      <fn n="onBlockKeyDown" p="(e, block, editable)" />
+      <fn n="openTypeMenu" p="(block, x, y)" />
+      <fn n="openIconPicker" p="(btn)" />
+      <fn n="onDragStart" p="(e, block, wrap)" />
+      <fn n="onDragEnd" p="(block, wrap)" />
+      <fn n="onDragOver" p="(e, block)" />
+      <fn n="onDrop" p="(e, block, wrap)" />
+      <fn n="addEmptyBlock" p="(focusAtEnd)" />
+      <fn n="onBlocksClick" p="(e)" />
+      <fn n="insertImage" p="()" />
+      <fn n="onImageFile" p="(event)" />
+      <cls n="Editable" />
+      <cls n="Dialog" />
+      <cls n="BlockContent" />
+      <cls n="Block" />
+      <cls n="Icon" />
+      <cls n="PhantomBlock" />
+      <cls n="ToggleContent" />
+      <cls n="Database" />
+      <cls n="ImageContent" />
+    </f>
+    <f p="frontend\src\components\layout\MobileNav.jsx" e=".jsx">
+      <imp>react,index</imp>
+      <fn n="MobileNav" p="({ state, navigate, createNewPage })" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\layout\Sidebar.jsx" e=".jsx">
+      <imp>react,menus,index,hooks,store,appContext</imp>
+      <fn n="roleLabel" p="(role)" />
+      <fn n="Sidebar" p="({ mobileOpen, setMobileOpen, openProfileMenu, onLogout })" />
+      <fn n="promptText" p="(opts)" />
+      <fn n="finishPrompt" p="(value)" />
+      <fn n="createTopLevelPage" p="()" />
+      <fn n="createSubpage" p="(parentId)" />
+      <fn n="buildMoveItems" p="(id)" />
+      <fn n="startRename" p="(page)" />
+      <fn n="openPageMenu" p="(page, x, y)" />
+      <fn n="doDelete" p="()" />
+      <fn n="finishRename" p="(save)" />
+      <fn n="onRowDragStart" p="(e, page)" />
+      <fn n="onRowDragEnd" p="()" />
+      <fn n="onTreeDragOver" p="(e)" />
+      <fn n="onTreeDrop" p="(e)" />
+      <fn n="createWorkspaceFlow" p="()" />
+      <fn n="renameWorkspace" p="()" />
+      <fn n="saveWorkspaceName" p="()" />
+      <fn n="openMembers" p="()" />
+      <fn n="deleteWorkspaceFlow" p="()" />
+      <fn n="openWorkspaceMenu" p="(anchor)" />
+      <fn n="inviteMember" p="()" />
+      <fn n="changeRole" p="(member, role)" />
+      <fn n="removeMember" p="(member)" />
+      <fn n="renderTree" p="(parentId, depth)" />
+      <fn n="PromptDialog" p="({ prompt, onFinish })" />
+      <fn n="submit" p="()" />
+      <cls n="Icon" />
+      <cls n="Dialog" />
+      <cls n="PromptDialog" />
+    </f>
+    <f p="frontend\src\components\layout\Topbar.jsx" e=".jsx">
+      <imp>react,hooks,store,appContext,index,menus</imp>
+      <fn n="Topbar" p="({ toggleSidebar })" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\overlays\CommandPalette.jsx" e=".jsx">
+      <imp>react,hooks,store,theme,index</imp>
+      <fn n="buildItems" p="(state, actions)" />
+      <fn n="visibleItems" p="(items, query)" />
+      <fn n="CommandPalette" p="({&#10;  open,&#10;  onClose,&#10;  navigate,&#10;  createNewPage,&#10;  openPage,&#10;  triggerImport,&#10;})" />
+      <fn n="run" p="(item)" />
+      <fn n="onKeyDown" p="(e)" />
+      <cls n="Icon" />
+      <cls n="Dialog" />
+    </f>
+    <f p="frontend\src\components\overlays\SearchModal.jsx" e=".jsx">
+      <imp>react,index,SearchResult,hooks,store</imp>
+      <fn n="SearchModal" p="({ open, onClose, openPage })" />
+      <fn n="go" p="(page)" />
+      <fn n="onKeyDown" p="(e)" />
+      <cls n="SearchResult" />
+      <cls n="Dialog" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\ui\helpers.js" e=".js">
+      <fn n="escapeHtml" p="(str)" />
+      <fn n="debounce" p="(fn, wait)" />
+      <fn n="initials" p="(name)" />
+      <fn n="isMobile" p="()" />
+      <fn n="isApple" p="()" />
+      <fn n="relativeTime" p="(iso)" />
+      <fn n="copyToClipboard" p="(text)" />
+      <fn n="fallbackCopy" p="(text)" />
+    </f>
+    <f p="frontend\src\components\ui\Icon.jsx" e=".jsx">
+      <imp>react</imp>
+      <fn n="Icon" p="({ name, size })" />
+    </f>
+    <f p="frontend\src\components\ui\index.jsx" e=".jsx">
+      <imp>react,Modal,Icon,helpers,Menu,Toast</imp>
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\ui\Menu.jsx" e=".jsx">
+      <imp>react,useExternal,externalStore,react-dom,Icon</imp>
+      <fn n="fitRect" p="(el, x, y)" />
+      <fn n="MenuPanel" p="({ opts, x, y, align, onClose, isSub })" />
+      <fn n="handleItem" p="(item)" />
+      <fn n="toggleSubmenu" p="(e, item)" />
+      <fn n="openSubmenu" p="(e, item)" />
+      <fn n="openMenu" p="(opts)" />
+      <fn n="closeMenus" p="()" />
+      <fn n="MenuLayer" p="()" />
+      <fn n="openMenuAt" p="(anchor, opts)" />
+      <cls n="Icon" />
+      <cls n="MenuPanel" />
+    </f>
+    <f p="frontend\src\components\ui\Modal.jsx" e=".jsx">
+      <imp>react,react-dom,Icon,useExternal,externalStore</imp>
+      <fn n="closeModal" p="()" />
+      <fn n="openModal" p="(opts)" />
+      <fn n="useModalState" p="()" />
+      <fn n="ModalLayer" p="()" />
+      <fn n="confirmDialog" p="(opts)" />
+      <fn n="finish" p="(value)" />
+      <fn n="Dialog" p="({ open, title, size, onClose, children, footer, ariaLabel })" />
+      <fn n="onKey" p="(e)" />
+      <fn n="useModal" p="()" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\ui\Toast.jsx" e=".jsx">
+      <imp>react,Icon,toast,useExternal</imp>
+      <fn n="ToastRoot" p="()" />
+      <fn n="iconFor" p="(type)" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\ui\useExternal.js" e=".js">
+      <imp>react</imp>
+      <fn n="useExternal" p="(store)" />
+    </f>
+    <f p="frontend\src\components\views\Activity.jsx" e=".jsx">
+      <imp>react,index,store,appContext,hooks,ViewHeader</imp>
+      <fn n="Activity" p="()" />
+      <cls n="ViewHeader" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\views\Dashboard.jsx" e=".jsx">
+      <imp>react,hooks,store,index,appContext,PageCard</imp>
+      <fn n="formatDate" p="(d)" />
+      <fn n="Dashboard" p="()" />
+      <fn n="createWorkspacePage" p="()" />
+      <cls n="PageCard" />
+      <cls n="EmptyCard" />
+      <cls n="Icon" />
+      <cls n="Dialog" />
+    </f>
+    <f p="frontend\src\components\views\Favorites.jsx" e=".jsx">
+      <imp>react,PageCard,ViewHeader,hooks,store</imp>
+      <fn n="Favorites" p="()" />
+      <cls n="ViewHeader" />
+      <cls n="PageCard" />
+    </f>
+    <f p="frontend\src\components\views\NotFound.jsx" e=".jsx">
+      <imp>react,ViewHeader,index,appContext</imp>
+      <fn n="NotFound" p="()" />
+      <cls n="ViewHeader" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\views\PageView.jsx" e=".jsx">
+      <imp>react,appContext,store,Editor,hooks</imp>
+      <fn n="PageView" p="({ pageId })" />
+      <cls n="Editor" />
+    </f>
+    <f p="frontend\src\components\views\SearchPage.jsx" e=".jsx">
+      <imp>react,index,store,hooks,appContext,ViewHeader,SearchResult</imp>
+      <fn n="SearchPage" p="()" />
+      <fn n="open" p="(page)" />
+      <cls n="Icon" />
+      <cls n="SearchResult" />
+      <cls n="ViewHeader" />
+    </f>
+    <f p="frontend\src\components\views\Settings.jsx" e=".jsx">
+      <imp>react,api,hooks,theme,store,index,ViewHeader</imp>
+      <fn n="validateProfile" p="(name, email)" />
+      <fn n="ThemeOption" p="({ value, label, desc, active })" />
+      <fn n="Switch" p="({ id, checked, onChange })" />
+      <fn n="Settings" p="()" />
+      <fn n="saveProfile" p="()" />
+      <fn n="updatePreference" p="(patch)" />
+      <cls n="Switch" />
+      <cls n="ViewHeader" />
+      <cls n="ThemeOption" />
+      <cls n="Icon" />
+    </f>
+    <f p="frontend\src\components\views\Templates.jsx" e=".jsx">
+      <imp>react,data,appContext,store,index,ViewHeader</imp>
+      <fn n="Templates" p="()" />
+      <fn n="createFromTemplate" p="(template)" />
+      <cls n="ViewHeader" />
+    </f>
+    <f p="frontend\src\components\views\Trash.jsx" e=".jsx">
+      <imp>react,ViewHeader,index,hooks,store</imp>
+      <fn n="trashedWhen" p="(page)" />
+      <fn n="Trash" p="()" />
+      <fn n="restore" p="(id)" />
+      <fn n="deleteForever" p="(page)" />
+      <fn n="emptyTrash" p="()" />
+      <cls n="Icon" />
+      <cls n="ViewHeader" />
+    </f>
+    <f p="frontend\src\core\api.js" e=".js">
       <fn n="baseUrl" p="()" />
       <fn n="setBaseUrl" p="(url)" />
       <fn n="getToken" p="()" />
@@ -232,83 +600,8 @@
       <fn n="del" p="(path, opts)" />
       <fn n="health" p="()" />
     </f>
-    <f p="js\app.js" e=".js">
-      <fn n="boot" p="()" />
-      <fn n="parseHash" p="()" />
-      <fn n="routeFromHash" p="()" />
-      <fn n="applyLoggedInRoute" p="(parsed)" />
-      <fn n="onHashChange" p="()" />
-      <fn n="setHash" p="(h)" />
-      <fn n="clearHash" p="()" />
-      <fn n="showLanding" p="()" />
-      <fn n="showLogin" p="()" />
-      <fn n="showRegister" p="()" />
-      <fn n="showAuthView" p="(which)" />
-      <fn n="showWorkspace" p="()" />
-      <fn n="applyPreferenceClasses" p="()" />
-      <fn n="wireLanding" p="()" />
-      <fn n="wireAuthForms" p="()" />
-      <fn n="setError" p="(errorEl, message)" />
-      <fn n="clearForm" p="(els)" />
-      <fn n="showFormError" p="(message)" />
-      <fn n="clearFormError" p="()" />
-      <fn n="setBusy" p="(button, busy, label)" />
-      <fn n="applyErrors" p="(errEls, errors)" />
-      <fn n="clearLogin" p="()" />
-      <fn n="submitLogin" p="()" />
-      <fn n="clearReg" p="()" />
-      <fn n="submitRegister" p="()" />
-      <fn n="navigate" p="(view)" />
-      <fn n="openPage" p="(id)" />
-      <fn n="logout" p="()" />
-      <fn n="onStoreChange" p="(reason)" />
-      <fn n="syncEditorMeta" p="()" />
-      <fn n="renderTopbar" p="()" />
-      <fn n="openMoreMenu" p="(page, x, y)" />
-      <fn n="doDelete" p="()" />
-      <fn n="openProfileMenu" p="(x, y)" />
-      <fn n="copyPageLink" p="(page)" />
-      <fn n="openShare" p="(page)" />
-      <fn n="openHelp" p="()" />
-      <fn n="toggleSidebar" p="()" />
-      <fn n="renderMobileNav" p="()" />
-      <fn n="btn" p="(id, view, iconName, label)" />
-      <fn n="createNewPage" p="()" />
-      <fn n="renderContent" p="()" />
-      <fn n="renderLoading" p="()" />
-      <fn n="renderMissingPage" p="()" />
-      <fn n="renderDashboard" p="()" />
-      <fn n="pageCard" p="(page, showStar)" />
-      <fn n="emptyCard" p="(title, desc)" />
-      <fn n="formatDate" p="(d)" />
-      <fn n="renderInbox" p="()" />
-      <fn n="renderSettings" p="()" />
-      <fn n="renderTab" p="(tab)" />
-      <fn n="themeOption" p="(value, label, desc)" />
-      <fn n="toggleRow" p="(id, checked)" />
-      <fn n="renderTemplates" p="()" />
-      <fn n="createFromTemplate" p="(tpl)" />
-      <fn n="renderFavoritesView" p="()" />
-      <fn n="createWorkspacePage" p="()" />
-      <fn n="done" p="()" />
-      <fn n="escapeRegExp" p="(str)" />
-      <fn n="renderSearchPage" p="()" />
-      <fn n="hl" p="(text, ql)" />
-      <fn n="itemHtml" p="(r, i, title, snippet, ql)" />
-      <fn n="wireResultClicks" p="()" />
-      <fn n="renderEmpty" p="()" />
-      <fn n="onInput" p="()" />
-      <fn n="runSearch" p="(q)" />
-      <fn n="renderTrash" p="()" />
-      <fn n="openCommandPalette" p="()" />
-      <fn n="renderList" p="(filter)" />
-      <fn n="updateSel" p="()" />
-      <fn n="openSearch" p="()" />
-      <fn n="wireImport" p="()" />
-      <fn n="triggerImport" p="()" />
-      <fn n="wireGlobalShortcuts" p="()" />
-    </f>
-    <f p="js\auth.js" e=".js">
+    <f p="frontend\src\core\auth.js" e=".js">
+      <imp>api</imp>
       <fn n="validateLogin" p="(email, password)" />
       <fn n="validateRegister" p="(name, email, password, confirm)" />
       <fn n="toResult" p="(payload)" />
@@ -317,136 +610,18 @@
       <fn n="isLoggedIn" p="()" />
       <fn n="logout" p="()" />
     </f>
-    <f p="js\blockRenderer.js" e=".js">
-      <fn n="render" p="(block, ctx)" />
-      <fn n="editable" p="(block, className, pageId, placeholder)" />
-      <fn n="image" p="(block, ctx)" />
-      <fn n="database" p="(block, pageId)" />
+    <f p="frontend\src\core\blockTypes.js" e=".js">
+      <fn n="slashItems" p="(query)" />
     </f>
-    <f p="js\data.js" e=".js" />
-    <f p="js\database.js" e=".js">
-      <fn n="cached" p="(id)" />
-      <fn n="invalidate" p="(id)" />
-      <fn n="columns" p="(dataTable)" />
-      <fn n="titleColumn" p="(dataTable)" />
-      <fn n="columnOfType" p="(dataTable, type)" />
-      <fn n="groupColumn" p="(dataTable)" />
-      <fn n="optionsFor" p="(dataTable, column)" />
-      <fn n="toDate" p="(value)" />
-      <fn n="dayKey" p="(date)" />
-      <fn n="cellText" p="(value)" />
-      <fn n="statusColor" p="(value)" />
-      <fn n="statusColumnOf" p="(dataTable)" />
-      <fn n="setStatusColor" p="(el, value)" />
-      <fn n="mount" p="(host, opts)" />
-      <fn n="remount" p="()" />
-      <fn n="renderFrame" p="(frame, dataTable, block, pageId, remount)" />
-      <fn n="render" p="()" />
-      <fn n="renderToolbar" p="(toolbar, state, rerender)" />
-      <fn n="openSettings" p="(state, rerender, remount)" />
-      <fn n="save" p="(patch)" />
-      <fn n="refresh" p="()" />
-      <fn n="setCell" p="(state, rowId, column, value, rerender)" />
-      <fn n="addRow" p="(state, rerender, extra)" />
-      <fn n="deleteRow" p="(state, rowId, rerender)" />
-      <fn n="makeCell" p="(state, rerender, row, column)" />
-      <fn n="renderTable" p="(body, state, rerender)" />
-      <fn n="deleteButton" p="(state, row, rerender)" />
-      <fn n="renderBoard" p="(body, state, rerender)" />
-      <fn n="miniMeta" p="(state, row, skip)" />
-      <fn n="renderCalendar" p="(body, state, rerender)" />
-      <fn n="openRowDialog" p="(state, row, rerender)" />
-      <fn n="cellInputHtml" p="(state, row, column)" />
-      <fn n="monthDiff" p="(from, to)" />
-      <fn n="renderRoadmap" p="(body, state, rerender)" />
+    <f p="frontend\src\core\data.js" e=".js" />
+    <f p="frontend\src\core\externalStore.js" e=".js">
+      <fn n="createStore" p="(initial)" />
+      <fn n="get" p="()" />
+      <fn n="set" p="(next)" />
+      <fn n="subscribe" p="(fn)" />
     </f>
-    <f p="js\editor.js" e=".js">
-      <fn n="render" p="(page, opts)" />
-      <fn n="syncMeta" p="(page)" />
-      <fn n="renderBlocks" p="()" />
-      <fn n="renderBlock" p="(block, numberSeq)" />
-      <fn n="attachBlockEvents" p="(wrap, block)" />
-      <fn n="onBlockKeydown" p="(wrap, block, editable, e)" />
-      <fn n="applySlashSelection" p="()" />
-      <fn n="getCaretOffset" p="(el)" />
-      <fn n="focusBlock" p="(blockId, atEnd)" />
-      <fn n="placeCaretAtEnd" p="(el)" />
-      <fn n="ensureEndBlock" p="()" />
-      <fn n="convert" p="()" />
-      <fn n="getSlashItems" p="(query)" />
-      <fn n="openSlashMenu" p="(blockEl, query)" />
-      <fn n="renderSlashMenu" p="()" />
-      <fn n="highlightSlash" p="()" />
-      <fn n="applySlashItem" p="(type)" />
-      <fn n="promptImage" p="(blockId)" />
-      <fn n="done" p="()" />
-      <fn n="closeSlashMenu" p="()" />
-      <fn n="repositionSlashMenu" p="(anchor)" />
-      <fn n="openTypeMenu" p="(block, x, y)" />
-      <fn n="openIconPicker" p="(btn)" />
-      <fn n="buildToolbar" p="()" />
-      <fn n="btn" p="(cmd, iconName, title, extra)" />
-      <fn n="sep" p="()" />
-      <fn n="updateFormatState" p="()" />
-      <fn n="onSelectionChange" p="()" />
-      <fn n="withinEditor" p="(sel)" />
-      <fn n="showToolbar" p="(sel)" />
-      <fn n="hideToolbar" p="()" />
-      <fn n="positionToolbar" p="(sel)" />
-      <fn n="init" p="()" />
-      <fn n="closeAll" p="()" />
-    </f>
-    <f p="js\search.js" e=".js">
-      <fn n="open" p="()" />
-      <fn n="close" p="()" />
-      <fn n="renderRecent" p="()" />
-      <fn n="onInput" p="()" />
-      <fn n="runSearch" p="(q)" />
-      <fn n="loadingHtml" p="()" />
-      <fn n="resultItemHtml" p="(page, i, title, snippet, ql)" />
-      <fn n="hl" p="(text)" />
-      <fn n="escapeRegExp" p="(str)" />
-      <fn n="wireResultEvents" p="()" />
-      <fn n="highlight" p="()" />
-      <fn n="go" p="(id)" />
-      <fn n="onKeydown" p="(e)" />
-      <fn n="scrollSelectedIntoView" p="()" />
-    </f>
-    <f p="js\sidebar.js" e=".js">
-      <fn n="openPage" p="(id)" />
-      <fn n="navigate" p="(view)" />
-      <fn n="renderNav" p="()" />
-      <fn n="renderTree" p="(container, parentId, depth)" />
-      <fn n="attachRowEvents" p="(wrap, page)" />
-      <fn n="openPageMenu" p="(id, page, x, y)" />
-      <fn n="doDelete" p="()" />
-      <fn n="buildMoveItems" p="(id)" />
-      <fn n="startRename" p="(wrap, page)" />
-      <fn n="finish" p="(save)" />
-      <fn n="startRenameOnMenu" p="(id)" />
-      <fn n="attachDrag" p="(row)" />
-      <fn n="clearDropTargets" p="()" />
-      <fn n="onTreeDragover" p="(e)" />
-      <fn n="onTreeDrop" p="(e)" />
-      <fn n="createTopLevelPage" p="()" />
-      <fn n="renderFavorites" p="()" />
-      <fn n="openWorkspaceMenu" p="(btn)" />
-      <fn n="roleLabel" p="(role)" />
-      <fn n="promptText" p="(opts)" />
-      <fn n="finish" p="(value)" />
-      <fn n="createWorkspaceFlow" p="()" />
-      <fn n="deleteWorkspaceFlow" p="()" />
-      <fn n="openMembers" p="()" />
-      <fn n="render" p="()" />
-      <fn n="renameWorkspace" p="()" />
-      <fn n="save" p="()" />
-      <fn n="renderAll" p="()" />
-      <fn n="init" p="()" />
-      <fn n="setCollapsed" p="(collapsed)" />
-      <fn n="toggleCollapsed" p="()" />
-      <fn n="setMobileOpen" p="(open)" />
-    </f>
-    <f p="js\store.js" e=".js">
+    <f p="frontend\src\core\store.js" e=".js">
+      <imp>api,toast,data</imp>
       <fn n="uid" p="(prefix)" />
       <fn n="clone" p="(obj)" />
       <fn n="isObjectId" p="(value)" />
@@ -462,8 +637,12 @@
       <fn n="savePrefs" p="()" />
       <fn n="save" p="()" />
       <fn n="saveDebounced" p="()" />
+      <fn n="emit" p="(reason)" />
       <fn n="commit" p="(reason)" />
       <fn n="mutate" p="(fn, reason)" />
+      <fn n="subscribe" p="(fn)" />
+      <fn n="getSnapshot" p="()" />
+      <fn n="getServerSnapshot" p="()" />
       <fn n="currentWorkspaceId" p="()" />
       <fn n="loadSession" p="()" />
       <fn n="clearSession" p="()" />
@@ -540,35 +719,19 @@
       <fn n="clearRecentSearches" p="()" />
       <fn n="getRecentSearches" p="()" />
       <fn n="updateUser" p="(patch)" />
+      <fn n="updateSettings" p="(patch, reason)" />
       <fn n="onChange" p="(fn)" />
     </f>
-    <f p="js\theme.js" e=".js">
+    <f p="frontend\src\core\theme.js" e=".js">
+      <imp>store</imp>
       <fn n="resolve" p="()" />
       <fn n="applyTheme" p="(withTransition)" />
       <fn n="setTheme" p="(t)" />
       <fn n="toggleTheme" p="()" />
     </f>
-    <f p="js\ui.js" e=".js">
-      <fn n="icon" p="(name, size)" />
-      <fn n="escapeHtml" p="(str)" />
-      <fn n="debounce" p="(fn, wait)" />
-      <fn n="initials" p="(name)" />
-      <fn n="isMobile" p="()" />
-      <fn n="isApple" p="()" />
-      <fn n="relativeTime" p="(iso)" />
-      <fn n="copyToClipboard" p="(text)" />
-      <fn n="fallbackCopy" p="(text)" />
+    <f p="frontend\src\core\toast.js" e=".js">
+      <imp>externalStore</imp>
       <fn n="showToast" p="(message, type)" />
-      <fn n="closeModal" p="()" />
-      <fn n="openModal" p="(opts)" />
-      <fn n="confirmDialog" p="(opts)" />
-      <fn n="closeMenus" p="()" />
-      <fn n="fitToViewport" p="(el, x, y)" />
-      <fn n="buildMenuEl" p="(opts)" />
-      <fn n="openSubmenu" p="(anchor, items)" />
-      <fn n="toggleSubmenu" p="(anchor, items)" />
-      <fn n="openMenu" p="(opts)" />
-      <fn n="openMenuAt" p="(anchor, opts)" />
     </f>
   </files>
 </repo>

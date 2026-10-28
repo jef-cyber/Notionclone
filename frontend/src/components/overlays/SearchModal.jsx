@@ -1,70 +1,24 @@
 import React, { useEffect, useRef, useState } from "react";
 
-import { useStore } from "../../hooks.js";
+import { usePageSearch, useStore } from "../../hooks.js";
 import { store } from "../../core/store.js";
 import { Dialog, Icon } from "../ui/index.jsx";
-
-function escapeRegExp(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function Highlight({ text, query }) {
-  if (!query) return text;
-  const parts = String(text).split(new RegExp("(" + escapeRegExp(query) + ")", "ig"));
-  return parts.map((part, i) =>
-    part.toLowerCase() === query.toLowerCase() ? <mark key={i}>{part}</mark> : part
-  );
-}
-
-function ResultItem({ result, index, query, selected, onHover, onOpen }) {
-  const page = result.page;
-  const title = page.title || "Untitled";
-  const snippet = result.snippet && result.snippet !== page.title ? result.snippet : "";
-  const path = store
-    .getPath(page.id)
-    .map((p) => p.title || "Untitled")
-    .join(" / ");
-
-  return (
-    <button
-      className="search-result"
-      data-id={page.id}
-      data-index={index}
-      data-selected={String(selected)}
-      role="option"
-      aria-selected={selected}
-      onMouseMove={onHover}
-      onClick={onOpen}
-    >
-      <span className="search-result-icon">{page.icon || "\uD83D\uDCDD"}</span>
-      <span className="search-result-body">
-        <span className="search-result-title">
-          <Highlight text={title} query={query} />
-        </span>
-        {snippet ? (
-          <span className="search-result-snippet">
-            <Highlight text={snippet} query={query} />
-          </span>
-        ) : null}
-      </span>
-      <span className="search-result-path">{path}</span>
-    </button>
-  );
-}
+import SearchResult from "../common/SearchResult.jsx";
 
 export default function SearchModal({ open, onClose, openPage }) {
   const state = useStore();
   const [query, setQuery] = useState("");
-  const [result, setResult] = useState({ q: "", items: [], loading: false });
   const [selected, setSelected] = useState(0);
   const inputRef = useRef(null);
   const resultsRef = useRef(null);
-  const tokenRef = useRef(0);
+  const { results, loading: searching, error } = usePageSearch(query, {
+    delay: 180,
+    enabled: open,
+  });
 
   useEffect(() => {
     if (!open) return;
     setQuery("");
-    setResult({ q: "", items: [], loading: false });
     setSelected(0);
     const frame = requestAnimationFrame(() => {
       if (inputRef.current) inputRef.current.focus();
@@ -73,39 +27,10 @@ export default function SearchModal({ open, onClose, openPage }) {
   }, [open]);
 
   useEffect(() => {
-    if (!open) return undefined;
-    const q = query.trim();
-    if (!q) {
-      tokenRef.current += 1;
-      setResult({ q: "", items: [], loading: false });
-      return undefined;
-    }
-
-    const mine = ++tokenRef.current;
-    let cancelled = false;
-    setResult((prev) => ({ q, items: prev.q === q ? prev.items : [], loading: true }));
-
-    const timer = setTimeout(async () => {
-      let items = [];
-      try {
-        items = await store.searchPages(q);
-      } catch (err) {
-        items = [];
-      }
-      if (cancelled || mine !== tokenRef.current) return;
-      setSelected(0);
-      setResult({ q, items, loading: false });
-    }, 180);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [open, query]);
+    setSelected(0);
+  }, [query]);
 
   const q = query.trim();
-  const searching = !!q && (result.loading || result.q !== q);
-  const results = q && result.q === q ? result.items : [];
   const recents = state.recent.map((id) => store.getPage(id)).filter(Boolean);
   const empty = !q;
   const items = empty ? recents : results;
@@ -114,7 +39,7 @@ export default function SearchModal({ open, onClose, openPage }) {
     if (!open || !resultsRef.current) return;
     const el = resultsRef.current.querySelector('[data-index="' + selected + '"]');
     if (el) el.scrollIntoView({ block: "nearest" });
-  }, [open, selected, result]);
+  }, [open, selected, results]);
 
   const go = (page) => {
     if (!page) return;
@@ -164,11 +89,12 @@ export default function SearchModal({ open, onClose, openPage }) {
             <>
               <div className="search-group-label">Recent</div>
               {recents.map((page, i) => (
-                <ResultItem
+                <SearchResult
                   result={{ page, snippet: "" }}
                   index={i}
                   query=""
                   selected={selected === i}
+                  option
                   key={page.id}
                   onHover={() => setSelected(i)}
                   onOpen={() => go(page)}
@@ -202,6 +128,13 @@ export default function SearchModal({ open, onClose, openPage }) {
                 <br />
                 Searching…
               </div>
+            ) : error ? (
+              <div className="search-empty search-empty-error" role="alert">
+                <Icon name="alert-triangle" />
+                <br />
+                <br />
+                {error}
+              </div>
             ) : !results.length ? (
               <div className="search-empty">
                 <Icon name="search" />
@@ -211,11 +144,12 @@ export default function SearchModal({ open, onClose, openPage }) {
               </div>
             ) : (
               results.map((item, i) => (
-                <ResultItem
+                <SearchResult
                   result={item}
                   index={i}
                   query={q.toLowerCase()}
                   selected={selected === i}
+                  option
                   key={item.page.id}
                   onHover={() => setSelected(i)}
                   onOpen={() => go(item.page)}

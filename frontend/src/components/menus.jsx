@@ -2,6 +2,7 @@ import React from "react";
 
 import { store } from "../core/store.js";
 import theme from "../core/theme.js";
+import { pageUrl } from "../routing.js";
 import { copyToClipboard, confirmDialog, Icon, initials, openMenu, openModal, showToast } from "./ui/index.jsx";
 
 /* Topbar and sidebar share these menus so both entry points stay identical. */
@@ -138,7 +139,7 @@ export function openMoreMenu(page, x, y, actions) {
 }
 
 export function copyPageLink(page) {
-  const url = window.location.origin + window.location.pathname + "#page/" + page.id;
+  const url = pageUrl(page.id);
   copyToClipboard(url).then(() => showToast("Link copied to clipboard"));
 }
 
@@ -173,7 +174,7 @@ export function openHelp() {
 }
 
 export function sharePage(page) {
-  const url = window.location.origin + window.location.pathname + "#page/" + page.id;
+  const url = pageUrl(page.id);
   const state = store.getState();
   const members = state.members || [];
   openModal({

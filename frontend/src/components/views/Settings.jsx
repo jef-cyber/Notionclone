@@ -1,10 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { useStore } from "../../hooks.js";
 import { store } from "../../core/store.js";
 import * as api from "../../core/api.js";
 import theme from "../../core/theme.js";
+import {
+  focusFirstInvalid,
+  validateProfile,
+  NAME_MAX,
+} from "../../core/validation.js";
 import { Icon, initials, showToast } from "../ui/index.jsx";
+import ViewHeader from "../common/ViewHeader.jsx";
 
 const TABS = [
   { id: "account", label: "My Account" },
@@ -47,27 +53,42 @@ export default function Settings() {
   const [tab, setTab] = useState("account");
   const [name, setName] = useState(user.name || "");
   const [email, setEmail] = useState(user.email || "");
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const formRef = useRef(null);
 
   useEffect(() => {
     setName(user.name || "");
     setEmail(user.email || "");
+    setErrors({});
   }, [user.name, user.email]);
 
   const saveProfile = async () => {
     if (saving) return;
     const nextName = name.trim();
     const nextEmail = email.trim();
-    if (!nextName || !nextEmail) {
-      showToast("Name and email are required", "error");
+    const found = validateProfile(nextName, nextEmail);
+    setErrors(found);
+    if (Object.keys(found).length) {
+      focusFirstInvalid(formRef.current);
+      showToast("Check the highlighted fields", "error");
       return;
     }
     setSaving(true);
     try {
       const data = await api.auth.updateProfile({ name: nextName, email: nextEmail });
       store.updateUser(data.user);
+      setErrors({});
       showToast("Profile updated", "success");
     } catch (err) {
+      const details = err.details || {};
+      const fieldErrors = {};
+      if (typeof details.name === "string") fieldErrors.name = details.name;
+      if (typeof details.email === "string") fieldErrors.email = details.email;
+      if (Object.keys(fieldErrors).length) {
+        setErrors(fieldErrors);
+        focusFirstInvalid(formRef.current);
+      }
       showToast(err.message, "error");
     } finally {
       setSaving(false);
@@ -81,8 +102,10 @@ export default function Settings() {
 
   return (
     <div className="view view-narrow">
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Settings</h1>
-      <p className="dash-date">Manage your account, appearance, and preferences.</p>
+      <ViewHeader
+        title="Settings"
+        subtitle="Manage your account, appearance, and preferences."
+      />
 
       <div className="settings-tabs">
         {TABS.map((item) => (
@@ -105,45 +128,83 @@ export default function Settings() {
             <p className="settings-section-desc">
               Your profile is stored in the <code>users</code> collection.
             </p>
-            <div className="avatar-edit">
-              <span className="avatar avatar-lg" id="settings-avatar">
-                {initials(user.name)}
-              </span>
-              <div className="field" style={{ margin: 0 }}>
-                <label htmlFor="f-name">Name</label>
-                <input id="f-name" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-            </div>
-            <div className="field">
-              <label htmlFor="f-email">Email</label>
-              <input
-                id="f-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="f-workspace">Workspace</label>
-              <input id="f-workspace" value={state.workspace.name || ""} disabled readOnly />
-            </div>
-            <div className="field">
-              <label htmlFor="f-role">Your role</label>
-              <input
-                id="f-role"
-                value={state.workspace.role || "member"}
-                disabled
-                readOnly
-              />
-            </div>
-            <button
-              className="btn btn-primary"
-              data-save-profile
-              disabled={saving}
-              onClick={saveProfile}
+            <form
+              className="settings-form"
+              ref={formRef}
+              noValidate
+              aria-busy={saving}
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveProfile();
+              }}
             >
-              Save changes
-            </button>
+              <div className="avatar-edit">
+                <span className="avatar avatar-lg" id="settings-avatar">
+                  {initials(user.name)}
+                </span>
+                <div className={"field" + (errors.name ? " has-error" : "")} style={{ margin: 0 }}>
+                  <label htmlFor="f-name">Name</label>
+                  <input
+                    id="f-name"
+                    name="name"
+                    type="text"
+                    autoComplete="name"
+                    required
+                    maxLength={NAME_MAX}
+                    value={name}
+                    aria-invalid={!!errors.name}
+                    aria-describedby={errors.name ? "f-name-error" : undefined}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setErrors((prev) => Object.assign({}, prev, { name: "" }));
+                    }}
+                  />
+                  {errors.name ? (
+                    <p className="field-error" id="f-name-error" role="alert">
+                      {errors.name}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className={"field" + (errors.email ? " has-error" : "")}>
+                <label htmlFor="f-email">Email</label>
+                <input
+                  id="f-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  aria-invalid={!!errors.email}
+                  aria-describedby={errors.email ? "f-email-error" : undefined}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setErrors((prev) => Object.assign({}, prev, { email: "" }));
+                  }}
+                />
+                {errors.email ? (
+                  <p className="field-error" id="f-email-error" role="alert">
+                    {errors.email}
+                  </p>
+                ) : null}
+              </div>
+              <div className="field">
+                <label htmlFor="f-workspace">Workspace</label>
+                <input id="f-workspace" value={state.workspace.name || ""} disabled readOnly />
+              </div>
+              <div className="field">
+                <label htmlFor="f-role">Your role</label>
+                <input
+                  id="f-role"
+                  value={state.workspace.role || "member"}
+                  disabled
+                  readOnly
+                />
+              </div>
+              <button className="btn btn-primary" type="submit" data-save-profile disabled={saving}>
+                {saving ? "Saving…" : "Save changes"}
+              </button>
+            </form>
           </div>
         ) : null}
 

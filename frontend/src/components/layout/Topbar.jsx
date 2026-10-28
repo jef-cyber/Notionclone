@@ -47,6 +47,7 @@ export default function Topbar({ toggleSidebar }) {
         search: "Search",
         trash: "Trash",
         page: "Page",
+        notfound: "Not found",
       }[state.view] || "Home";
     crumbs = (
       <>

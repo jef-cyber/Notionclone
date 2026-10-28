@@ -3,6 +3,7 @@ import React from "react";
 import { useStore } from "../../hooks.js";
 import { store } from "../../core/store.js";
 import { confirmDialog, Icon, showToast } from "../ui/index.jsx";
+import ViewHeader from "../common/ViewHeader.jsx";
 
 function trashedWhen(page) {
   const archived = page.archivedAt ? new Date(page.archivedAt) : null;
@@ -59,30 +60,22 @@ export default function Trash() {
 
   return (
     <div className="view view-narrow">
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Trash</h1>
-          <p className="dash-date">
-            {items.length
-              ? count + " page" + (count === 1 ? "" : "s") +
-                " in trash. Restore to keep, or delete forever."
-              : "Deleted pages appear here."}
-          </p>
-        </div>
-        {items.length ? (
-          <button className="btn btn-danger btn-sm" data-empty-trash onClick={emptyTrash}>
-            <Icon name="trash" /> Empty trash
-          </button>
-        ) : null}
-      </div>
+      <ViewHeader
+        title="Trash"
+        subtitle={
+          items.length
+            ? count + " page" + (count === 1 ? "" : "s") +
+              " in trash. Restore to keep, or delete forever."
+            : "Deleted pages appear here."
+        }
+        action={
+          items.length ? (
+            <button className="btn btn-danger btn-sm" data-empty-trash onClick={emptyTrash}>
+              <Icon name="trash" /> Empty trash
+            </button>
+          ) : null
+        }
+      />
 
       {!items.length ? (
         <div className="empty-state">

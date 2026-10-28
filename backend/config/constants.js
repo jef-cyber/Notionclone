@@ -75,4 +75,19 @@ const PROPERTY_TYPES = [
   "relation",
 ];
 
-module.exports = { ROLES, ROLE_RANK, COLLECTIONS, BLOCK_TYPES, PROPERTY_TYPES };
+/** Timeline dependency types. Finish-to-start is the enforced default. */
+const DEPENDENCY_TYPES = [
+  "finish-to-start",
+  "start-to-start",
+  "finish-to-finish",
+  "start-to-finish",
+];
+
+module.exports = {
+  ROLES,
+  ROLE_RANK,
+  COLLECTIONS,
+  BLOCK_TYPES,
+  PROPERTY_TYPES,
+  DEPENDENCY_TYPES,
+};

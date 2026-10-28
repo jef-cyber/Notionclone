@@ -4,6 +4,7 @@ import { useStore } from "../../hooks.js";
 import { store } from "../../core/store.js";
 import { Icon, relativeTime } from "../ui/index.jsx";
 import { useApp } from "../../appContext.js";
+import ViewHeader from "../common/ViewHeader.jsx";
 
 export default function Activity() {
   const state = useStore();
@@ -14,8 +15,7 @@ export default function Activity() {
   if (!activity.length) {
     return (
       <div className="view view-narrow">
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Activity</h1>
-        <p className="dash-date">Nothing here yet.</p>
+        <ViewHeader title="Activity" subtitle="Nothing here yet." />
         <div className="empty-state">
           <div className="empty-icon">
             <Icon name="inbox" />
@@ -34,14 +34,16 @@ export default function Activity() {
 
   return (
     <div className="view view-narrow">
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Activity</h1>
-      <p className="dash-date">
-        {"The " +
+      <ViewHeader
+        title="Activity"
+        subtitle={
+          "The " +
           pages +
           " page" +
           (pages === 1 ? "" : "s") +
-          " in this workspace, most recently changed first."}
-      </p>
+          " in this workspace, most recently changed first."
+        }
+      />
       {Object.keys(groups).map((group) => (
         <React.Fragment key={group}>
           <h3 className="inbox-group-title">{group}</h3>

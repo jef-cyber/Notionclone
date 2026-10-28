@@ -10,30 +10,35 @@ export function PageCard({ page, showStar }) {
   const when = relativeTime(page.updatedAt);
 
   return (
-    <button
-      className="card"
-      onClick={(e) => {
-        if (e.target.closest(".card-star")) {
-          store.toggleFavorite(page.id);
-          showToast("Removed from favorites");
-          return;
-        }
-        app.openPage(page.id);
-      }}
-    >
-      <span className="card-icon">{page.icon || "\uD83D\uDCDD"}</span>
-      <span className="card-body">
-        <span className="card-title">{page.title || "Untitled"}</span>
-        <span className="card-sub">
-          {when ? "Updated " + when : "Not yet saved"}
+    <div className="card">
+      <button
+        className="card-open"
+        type="button"
+        onClick={() => app.openPage(page.id)}
+      >
+        <span className="card-icon">{page.icon || "\uD83D\uDCDD"}</span>
+        <span className="card-body">
+          <span className="card-title">{page.title || "Untitled"}</span>
+          <span className="card-sub">
+            {when ? "Updated " + when : "Not yet saved"}
+          </span>
         </span>
-      </span>
+      </button>
       {showStar ? (
-        <span className="card-star" data-active="true" aria-label="Remove from favorites">
+        <button
+          className="card-star"
+          type="button"
+          data-active="true"
+          aria-label={"Remove " + (page.title || "Untitled") + " from favorites"}
+          onClick={() => {
+            store.toggleFavorite(page.id);
+            showToast("Removed from favorites");
+          }}
+        >
           <Icon name="starFilled" />
-        </span>
+        </button>
       ) : null}
-    </button>
+    </div>
   );
 }
 
